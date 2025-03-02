@@ -1,0 +1,14 @@
+muted = false
+
+# List of keys: https://docs.rs/winit/0.23.0/winit/event/enum.VirtualKeyCode.html#variants
+[controls]
+move_left = "Left"
+move_right = "Right"
+rotate_cw = "X"
+rotate_ccw = "Z"
+soft_drop = "Down"
+hard_drop = "Space"
+hold = "Up"
+pause = "Escape"
+mute = "M"
+restart = "Return"
