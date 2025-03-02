@@ -19,13 +19,28 @@ enum Direction {
     Left,
 }
 
+impl Direction {
+    fn rotate(&self, diff: &DirectionDiff) -> Self {
+        match (self, diff) {
+            (Direction::Up, DirectionDiff::CW) => Self::Right,
+            (Direction::Up, DirectionDiff::CCW) => Self::Left,
+            (Direction::Right, DirectionDiff::CW) => Self::Down,
+            (Direction::Right, DirectionDiff::CCW) => Self::Up,
+            (Direction::Down, DirectionDiff::CW) => Self::Left,
+            (Direction::Down, DirectionDiff::CCW) => Self::Right,
+            (Direction::Left, DirectionDiff::CW) => Self::Up,
+            (Direction::Left, DirectionDiff::CCW) => Self::Down,
+        }
+    }
+}
+
 enum DirectionDiff {
     CW,
     CCW,
 }
 
 impl Tetromino {
-    fn new_random() -> Self {
+    fn random() -> Self {
         let v: u8 = rand::random();
         match v % 7 {
             0 => Self::I,
@@ -51,7 +66,7 @@ impl Tetromino {
         }
     }
 
-    fn direction_pattern(&self, direction: Direction) -> [[bool; 4]; 4] {
+    fn direction_pattern(&self, direction: &Direction) -> [[bool; 4]; 4] {
         let idx = match direction {
             Direction::Up => 0,
             Direction::Right => 1,
@@ -62,140 +77,32 @@ impl Tetromino {
         self.directions()[idx]
     }
 
-    fn rotation_pattern_from_string(pattern: &'static str) -> [[bool; 4]; 4] {
-        pattern
-            .split_whitespace()
-            .map(|row| {
-                let row: [char; 4] = row.chars().collect::<Vec<_>>().try_into().unwrap();
-                row.map(|c| {
-                    if c == '#' {
-                        true
-                    } else if c == '-' {
-                        false
-                    } else {
-                        panic!("invalid rotation pattern");
-                    }
-                })
-            })
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap()
-    }
-
-    const fn directions(&self) -> [[[bool; 4]; 4]; 4] {
-        match self {
+    fn directions(&self) -> [[[bool; 4]; 4]; 4] {
+        let dir = match self {
             Self::I => [
-                Self::rotation_pattern_from_string(
-                    r"
-                ----
-                ####
-                ----
-                ----
-                ",
-                ),
-                Self::rotation_pattern_from_string(
-                    r"
-                --#-
-                --#-
-                --#-
-                --#-
-                ",
-                ),
-                Self::rotation_pattern_from_string(
-                    r"
-                ----
-                ----
-                ####
-                ----
-                ",
-                ),
-                Self::rotation_pattern_from_string(
-                    r"
-                -#--
-                -#--
-                -#--
-                -#--
-                ",
-                ),
+                [[0, 0, 0, 0], [1, 1, 1, 1], [0, 0, 0, 0], [0, 0, 0, 0]],
+                [[0, 0, 1, 0], [0, 0, 1, 0], [0, 0, 1, 0], [0, 0, 1, 0]],
+                [[0, 0, 0, 0], [0, 0, 0, 0], [1, 1, 1, 1], [0, 0, 0, 0]],
+                [[0, 1, 0, 0], [0, 1, 0, 0], [0, 1, 0, 0], [0, 1, 0, 0]],
             ],
             Self::J => [
-                Self::rotation_pattern_from_string(
-                    r"
-                ----
-                #---
-                ###-
-                ----
-                ",
-                ),
-                Self::rotation_pattern_from_string(
-                    r"
-                ----
-                -##-
-                -#--
-                -#--
-                ",
-                ),
-                Self::rotation_pattern_from_string(
-                    r"
-                ----
-                ----
-                ###-
-                --#-
-                ",
-                ),
-                Self::rotation_pattern_from_string(
-                    r"
-                ----
-                -#--
-                -#--
-                ##--
-                ",
-                ),
+                [[0, 0, 0, 0], [1, 0, 0, 0], [1, 1, 1, 0], [0, 0, 0, 0]],
+                [[0, 0, 0, 0], [0, 1, 1, 0], [0, 1, 0, 0], [0, 1, 0, 0]],
+                [[0, 0, 0, 0], [0, 0, 0, 0], [1, 1, 1, 0], [0, 0, 1, 0]],
+                [[0, 0, 0, 0], [0, 1, 0, 0], [0, 1, 0, 0], [1, 1, 0, 0]],
             ],
             Self::L => [
-                Self::rotation_pattern_from_string(
-                    r"
-                ----
-                --#-
-                ###-
-                ----
-                ",
-                ),
-                Self::rotation_pattern_from_string(
-                    r"
-                ----
-                -#--
-                -#--
-                -##-
-                ",
-                ),
-                Self::rotation_pattern_from_string(
-                    r"
-                ----
-                ----
-                ###-
-                #---
-                ",
-                ),
-                Self::rotation_pattern_from_string(
-                    r"
-                ----
-                ##--
-                -#--
-                -#--
-                ",
-                ),
+                [[0, 0, 0, 0], [0, 0, 1, 0], [1, 1, 1, 0], [0, 0, 0, 0]],
+                [[0, 0, 0, 0], [0, 1, 0, 0], [0, 1, 0, 0], [0, 1, 1, 0]],
+                [[0, 0, 0, 0], [0, 0, 0, 0], [1, 1, 1, 0], [1, 0, 0, 0]],
+                [[0, 0, 0, 0], [1, 1, 0, 0], [0, 1, 0, 0], [0, 1, 0, 0]],
             ],
-            Self::O => {
-                [Self::rotation_pattern_from_string(
-                    r"
-                ----
-                -##-
-                -##-
-                ----
-                ",
-                ); 4]
-            }
+            Self::O => [
+                [[0, 0, 0, 0], [0, 1, 1, 0], [0, 1, 1, 0], [0, 0, 0, 0]],
+                [[0, 0, 0, 0], [0, 1, 1, 0], [0, 1, 1, 0], [0, 0, 0, 0]],
+                [[0, 0, 0, 0], [0, 1, 1, 0], [0, 1, 1, 0], [0, 0, 0, 0]],
+                [[0, 0, 0, 0], [0, 1, 1, 0], [0, 1, 1, 0], [0, 0, 0, 0]],
+            ],
             Self::S => [
                 [[0, 0, 0, 0], [0, 1, 1, 0], [1, 1, 0, 0], [0, 0, 0, 0]],
                 [[0, 0, 0, 0], [0, 1, 0, 0], [0, 1, 1, 0], [0, 0, 1, 0]],
@@ -214,10 +121,12 @@ impl Tetromino {
                 [[0, 0, 0, 0], [0, 0, 0, 0], [1, 1, 0, 0], [0, 1, 1, 0]],
                 [[0, 0, 0, 0], [0, 1, 0, 0], [1, 1, 0, 0], [1, 0, 0, 0]],
             ],
-        }
+        };
+
+        dir.map(|dir| dir.map(|row| row.map(|v| v != 0)))
     }
 
-    const fn wallkicks(&self, direction: Direction, diff: DirectionDiff) -> [(i8, i8); 5] {
+    const fn wall_kicks(&self, direction: &Direction, diff: &DirectionDiff) -> [(i8, i8); 5] {
         match self {
             Self::J | Self::L | Self::S | Self::T | Self::Z => match (direction, diff) {
                 (Direction::Up, DirectionDiff::CW) => [(0, 0), (-1, 0), (-1, 1), (0, -2), (-1, -2)],
@@ -276,7 +185,7 @@ impl CurrentTetromino {
     }
 }
 
-struct Board([[Rgb; Self::WIDTH]; Self::HEIGHT]);
+struct Board(pub [[Option<Rgb>; Self::WIDTH]; Self::HEIGHT]);
 
 impl Board {
     const WIDTH: usize = 10;
@@ -285,7 +194,7 @@ impl Board {
 
 impl Board {
     pub fn new() -> Self {
-        Board([[Rgb(0, 0, 0); Self::WIDTH]; Self::HEIGHT])
+        Board([[None; Self::WIDTH]; Self::HEIGHT])
     }
 
     pub fn colliding(
@@ -295,13 +204,13 @@ impl Board {
             direction,
             x: cur_x,
             y: cur_y,
-        }: CurrentTetromino,
+        }: &CurrentTetromino,
     ) -> bool {
         let pattern = tetromino.direction_pattern(direction);
 
         for y in 0..pattern.len() {
             for x in 0..pattern[y].len() {
-                if pattern[y][x] == 0 {
+                if !pattern[y][x] {
                     continue;
                 }
 
@@ -320,7 +229,7 @@ impl Board {
                     return true;
                 }
 
-                if self.0[y as usize][x as usize] != Rgb(0, 0, 0) {
+                if self.0[y as usize][x as usize].is_some() {
                     return true;
                 }
             }
@@ -365,6 +274,49 @@ impl Game {
         last
     }
 
+    fn try_rotate(&mut self, diff: DirectionDiff) {
+        let rotated = self.current_tetromino.direction.rotate(&diff);
+        let old_direction = std::mem::replace(&mut self.current_tetromino.direction, rotated);
+        if !self.board.colliding(&self.current_tetromino) {
+            return;
+        }
+        let wall_kicks = self
+            .current_tetromino
+            .tetromino
+            .wall_kicks(&old_direction, &diff);
+
+        for (x, y) in wall_kicks {
+            self.current_tetromino.x += x;
+            self.current_tetromino.y += y;
+            if !(self.board.colliding(&self.current_tetromino)) {
+                return;
+            }
+            self.current_tetromino.x -= x;
+            self.current_tetromino.y -= y;
+        }
+
+        self.current_tetromino.direction = old_direction;
+    }
+
+    fn place_current_tetromino(&mut self) {
+        let next = CurrentTetromino::new(self.take_next_in_bag(Tetromino::random()));
+        let current = std::mem::replace(&mut self.current_tetromino, next);
+        let pattern = current.tetromino.direction_pattern(&current.direction);
+
+        for (y, row) in pattern.iter().enumerate() {
+            for x in row
+                .iter()
+                .enumerate()
+                .filter(|(_, exists)| **exists)
+                .map(|(idx, _)| idx)
+            {
+                let y = (current.y + y as i8) as usize;
+                let x = (current.x + x as i8) as usize;
+                self.board.0[y][x] = Some(current.tetromino.color());
+            }
+        }
+    }
+
     fn try_swap_tetromino(&mut self) {
         if self.has_swapped_held {
             return;
@@ -373,7 +325,7 @@ impl Game {
         let held_or_first_in_bag_tetromino = self
             .held_tetromino
             .take()
-            .unwrap_or_else(|| self.take_next_in_bag(Tetromino::new_random()));
+            .unwrap_or_else(|| self.take_next_in_bag(Tetromino::random()));
         let current_tetromino = CurrentTetromino::new(held_or_first_in_bag_tetromino);
         let old_tetromino = std::mem::replace(&mut self.current_tetromino, current_tetromino);
         self.held_tetromino.replace(old_tetromino.tetromino);
