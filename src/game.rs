@@ -1,4 +1,4 @@
-use crate::actions::{Controls, ControlsHeld};
+use crate::actions::{Action, ActionsHeld};
 use crate::board::Board;
 use crate::tetromino::{Direction, DirectionDiff, Tetromino};
 
@@ -21,14 +21,14 @@ impl CurrentTetromino {
     }
 }
 
-struct Game {
-    board: Board,
-    next_tetrominos: [Tetromino; 3],
-    current_tetromino: CurrentTetromino,
-    held_tetromino: Option<Tetromino>,
+pub struct Game {
+    pub board: Board,
+    pub next_tetrominos: [Tetromino; 3],
+    pub current_tetromino: CurrentTetromino,
+    pub held_tetromino: Option<Tetromino>,
     has_swapped_held: bool,
-    score: Score,
-    ticks: usize,
+    pub score: Score,
+    pub ticks: usize,
 }
 
 struct Score {
@@ -79,6 +79,17 @@ impl Score {
 }
 
 impl Game {
+    pub fn new() -> Self {
+        Self {
+            board: Board::new(),
+            next_tetrominos: std::array::from_fn(|_| Tetromino::random()),
+            current_tetromino: CurrentTetromino::new(Tetromino::random()),
+            held_tetromino: None,
+            has_swapped_held: false,
+            score: Score::new(),
+            ticks: 0,
+        }
+    }
     fn take_next_in_bag(&mut self, mut last: Tetromino) -> Tetromino {
         for value in self.next_tetrominos.iter_mut().rev() {
             std::mem::swap(value, &mut last)
@@ -86,8 +97,8 @@ impl Game {
         last
     }
 
-    fn hard_drop(&mut self, controls: &ControlsHeld) {
-        if !controls.just_pressed(self.ticks, &Controls::HardDrop) {
+    fn hard_drop(&mut self, actions: &ActionsHeld) {
+        if !actions.just_pressed(self.ticks, &Action::HardDrop) {
             return;
         }
         let start_y = self.current_tetromino.y;
@@ -104,9 +115,9 @@ impl Game {
         }
     }
 
-    fn soft_drop(&mut self, controls: &ControlsHeld) {
+    fn soft_drop(&mut self, actions: &ActionsHeld) {
         let mut delay = 32 - self.score.level * 2;
-        if controls.contains_key(&Controls::SoftDrop) {
+        if actions.contains_key(&Action::SoftDrop) {
             delay /= 10;
         }
 
@@ -119,21 +130,21 @@ impl Game {
             self.current_tetromino.y -= 1;
             self.place_current_tetromino();
             self.check_line_clears();
-        } else if controls.contains_key(&Controls::SoftDrop) {
+        } else if actions.contains_key(&Action::SoftDrop) {
             self.score.points += 1;
         }
     }
 
-    fn move_horizontally(&mut self, controls: &ControlsHeld) {
-        for key in [Controls::Left, Controls::Right] {
-            let just_pressed = controls.just_pressed(self.ticks, &key);
-            let long_press = controls.held_for(self.ticks, &key, |held_for| held_for > 15);
+    fn move_horizontally(&mut self, actions: &ActionsHeld) {
+        for key in [Action::Left, Action::Right] {
+            let just_pressed = actions.just_pressed(self.ticks, &key);
+            let long_press = actions.held_for(self.ticks, &key, |held_for| held_for > 15);
             if !just_pressed && !long_press {
                 continue;
             }
             let offset = match key {
-                Controls::Left => -1,
-                Controls::Right => 1,
+                Action::Left => -1,
+                Action::Right => 1,
                 _ => unreachable!(),
             };
             self.current_tetromino.x += offset;
@@ -173,21 +184,20 @@ impl Game {
         }
     }
 
-    fn step(&mut self, controls: &ControlsHeld) {
-        // TODO: ensure game is running at 60 ticks per second? (`if !check_update_time(context, 60) { return; }`)
-        self.hard_drop(controls);
-        self.soft_drop(controls);
-        self.move_horizontally(controls);
+    pub fn step(&mut self, actions: &ActionsHeld) {
+        self.hard_drop(actions);
+        self.soft_drop(actions);
+        self.move_horizontally(actions);
 
-        if controls.just_pressed(self.ticks, &Controls::Swap) {
+        if actions.just_pressed(self.ticks, &Action::Swap) {
             self.try_swap_tetromino();
         }
 
         for (control, direction) in [
-            (Controls::RotateCw, DirectionDiff::Cw),
-            (Controls::RotateCcw, DirectionDiff::Ccw),
+            (Action::RotateCw, DirectionDiff::Cw),
+            (Action::RotateCcw, DirectionDiff::Ccw),
         ] {
-            if !controls.just_pressed(self.ticks, &control) {
+            if !actions.just_pressed(self.ticks, &control) {
                 continue;
             }
             self.try_rotate(direction);
