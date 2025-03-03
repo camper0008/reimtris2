@@ -33,6 +33,10 @@ pub trait UiCtx<Err> {
 }
 
 pub trait GameUiCtx<Err>: UiCtx<Err> {
+    fn tile_size(&self) -> i32 {
+        24
+    }
+
     fn draw_tetromino_from_parts(
         &mut self,
         x: i8,
@@ -55,74 +59,123 @@ pub trait GameUiCtx<Err>: UiCtx<Err> {
     }
 
     fn draw_board_tile(&mut self, x: i32, y: i32, color: &Rgb, filled: bool) -> Result<(), Err> {
-        let tile_size = 24;
         let (win_width, win_height) = self.window_size()?;
-        let x = center(tile_size * Board::WIDTH as i32, win_width) + x * tile_size;
-        let y = center(tile_size * Board::HEIGHT as i32, win_height) + y * tile_size;
+        let x = center(self.tile_size() * Board::WIDTH as i32, win_width) + x * self.tile_size();
+        let y = center(self.tile_size() * Board::HEIGHT as i32, win_height) + y * self.tile_size();
         if filled {
-            self.fill_rect(x, y, tile_size, tile_size, color)?;
+            self.fill_rect(x, y, self.tile_size(), self.tile_size(), color)?;
         } else {
-            self.outline_rect(x, y, tile_size, tile_size, color)?;
+            self.outline_rect(x, y, self.tile_size(), self.tile_size(), color)?;
         }
+        Ok(())
+    }
+
+    fn draw_centered_tetromino(
+        &mut self,
+        tetromino: &Tetromino,
+        x: i32,
+        y: i32,
+        width: i32,
+        height: i32,
+    ) -> Result<(), Err> {
+        let color = Rgb::from_tetromino(tetromino);
+        let pattern = tetromino.pattern(&Direction::Up);
+
+        let min_x_offset = pattern
+            .iter()
+            .min_by(|left, right| left.0.cmp(&right.0))
+            .expect("pattern's len > 0")
+            .0;
+        let min_y_offset = pattern
+            .iter()
+            .min_by(|left, right| left.1.cmp(&right.1))
+            .expect("pattern's len > 0")
+            .1;
+
+        let (x_len, y_len) = {
+            let max_x_offset = pattern
+                .iter()
+                .max_by(|left, right| left.0.cmp(&right.0))
+                .expect("pattern's len > 0")
+                .0;
+
+            let max_y_offset = pattern
+                .iter()
+                .max_by(|left, right| left.1.cmp(&right.1))
+                .expect("pattern's len > 0")
+                .1;
+
+            (
+                1 + max_x_offset - min_x_offset,
+                1 + max_y_offset - min_y_offset,
+            )
+        };
+
+        let x = x + center(self.tile_size() * x_len as i32, width);
+        let y = y + center(self.tile_size() * y_len as i32, height);
+
+        for (x_offset, y_offset) in pattern {
+            let x_offset = x_offset - min_x_offset;
+            let y_offset = y_offset - min_y_offset;
+            let x = x + (x_offset * 24) as i32;
+            let y = y + (y_offset * 24) as i32;
+            self.fill_rect(x, y, 24, 24, &color)?;
+        }
+
+        Ok(())
+    }
+
+    fn draw_held_tetromino(
+        &mut self,
+        held: &Option<Tetromino>,
+        x: i32,
+        y: i32,
+        width: i32,
+        height: i32,
+    ) -> Result<(), Err> {
+        self.fill_rect(x, y, width, height, &Rgb(0, 0, 0))?;
+        self.outline_rect(x - 1, y - 1, width + 2, height + 2, &Rgb(255, 255, 255))?;
+
+        let Some(tetromino) = held else {
+            return Ok(());
+        };
+        self.draw_centered_tetromino(&tetromino, x, y, width, height)?;
+
+        Ok(())
+    }
+
+    fn draw_next_up(
+        &mut self,
+        next_up: &[Tetromino; 3],
+        x: i32,
+        y: i32,
+        width: i32,
+        height: i32,
+    ) -> Result<(), Err> {
+        self.fill_rect(x, y, width, height * 3, &Rgb(0, 0, 0))?;
+        self.outline_rect(x - 1, y - 1, width + 2, height * 3 + 2, &Rgb(255, 255, 255))?;
+
+        for (offset, tetromino) in next_up.iter().enumerate() {
+            self.draw_centered_tetromino(tetromino, x, y + offset as i32 * height, width, height)?;
+        }
+
         Ok(())
     }
 
     fn draw_bag(&mut self, held: &Option<Tetromino>, next_up: &[Tetromino; 3]) -> Result<(), Err> {
         let (win_width, win_height) = self.window_size()?;
-        let x = center(24 * Board::WIDTH as i32, win_width);
-        let y = center(24 * Board::HEIGHT as i32, win_height);
+        let x = center(self.tile_size() * Board::WIDTH as i32, win_width);
+        let y = center(self.tile_size() * Board::HEIGHT as i32, win_height);
 
-        let size = 24 * 5;
-        let x = x - size - 16;
+        let width = self.tile_size() * 5;
+        let height = self.tile_size() * 4;
+        let x = x - width - self.tile_size();
 
-        self.fill_rect(x, y, size, size, &Rgb(0, 0, 0))?;
-        self.outline_rect(x - 1, y - 1, size + 2, size + 2, &Rgb(255, 255, 255))?;
+        self.draw_held_tetromino(&held, x, y, width, height)?;
 
-        if let Some(tetromino) = held {
-            let color = Rgb::from_tetromino(&tetromino);
-            let pattern = tetromino.pattern(&Direction::Up);
+        let y = y + height + self.tile_size();
 
-            let min_x_offset = pattern
-                .iter()
-                .min_by(|left, right| left.0.cmp(&right.0))
-                .expect("pattern's len > 0")
-                .0;
-            let min_y_offset = pattern
-                .iter()
-                .min_by(|left, right| left.1.cmp(&right.1))
-                .expect("pattern's len > 0")
-                .1;
-
-            let (x_len, y_len) = {
-                let max_x_offset = pattern
-                    .iter()
-                    .max_by(|left, right| left.0.cmp(&right.0))
-                    .expect("pattern's len > 0")
-                    .0;
-
-                let max_y_offset = pattern
-                    .iter()
-                    .max_by(|left, right| left.1.cmp(&right.1))
-                    .expect("pattern's len > 0")
-                    .1;
-
-                (
-                    1 + max_x_offset - min_x_offset,
-                    1 + max_y_offset - min_y_offset,
-                )
-            };
-
-            let x = x + center(24 * x_len as i32, size);
-            let y = y + center(24 * y_len as i32, size);
-
-            for (x_offset, y_offset) in pattern {
-                let x_offset = x_offset - min_x_offset;
-                let y_offset = y_offset - min_y_offset;
-                let x = x + (x_offset * 24) as i32;
-                let y = y + (y_offset * 24) as i32;
-                self.fill_rect(x, y, 24, 24, &color)?;
-            }
-        }
+        self.draw_next_up(next_up, x, y, width, height)?;
 
         Ok(())
     }
