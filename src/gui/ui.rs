@@ -81,7 +81,43 @@ pub trait GameUiCtx<Err>: UiCtx<Err> {
         if let Some(tetromino) = held {
             let color = Rgb::from_tetromino(&tetromino);
             let pattern = tetromino.pattern(&Direction::Up);
+
+            let min_x_offset = pattern
+                .iter()
+                .min_by(|left, right| left.0.cmp(&right.0))
+                .expect("pattern's len > 0")
+                .0;
+            let min_y_offset = pattern
+                .iter()
+                .min_by(|left, right| left.1.cmp(&right.1))
+                .expect("pattern's len > 0")
+                .1;
+
+            let (x_len, y_len) = {
+                let max_x_offset = pattern
+                    .iter()
+                    .max_by(|left, right| left.0.cmp(&right.0))
+                    .expect("pattern's len > 0")
+                    .0;
+
+                let max_y_offset = pattern
+                    .iter()
+                    .max_by(|left, right| left.1.cmp(&right.1))
+                    .expect("pattern's len > 0")
+                    .1;
+
+                (
+                    1 + max_x_offset - min_x_offset,
+                    1 + max_y_offset - min_y_offset,
+                )
+            };
+
+            let x = x + center(24 * x_len as i32, size);
+            let y = y + center(24 * y_len as i32, size);
+
             for (x_offset, y_offset) in pattern {
+                let x_offset = x_offset - min_x_offset;
+                let y_offset = y_offset - min_y_offset;
                 let x = x + (x_offset * 24) as i32;
                 let y = y + (y_offset * 24) as i32;
                 self.fill_rect(x, y, 24, 24, &color)?;
