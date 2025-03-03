@@ -12,33 +12,58 @@ fn source_from_path<P: AsRef<std::path::Path>>(path: P) -> Decoder<BufReader<Fil
 
 fn play_audio<P: AsRef<std::path::Path>>(
     stream_handle: &OutputStreamHandle,
-    sink: &mut Sink,
+    sink: &mut Option<Sink>,
     path: P,
     volume: f32,
 ) {
     let source = source_from_path(path);
-    *sink = Sink::try_new(&stream_handle).unwrap();
-    sink.set_volume(volume);
-    sink.append(source);
+    *sink = Sink::try_new(&stream_handle).ok();
+    if let Some(sink) = sink {
+        sink.set_volume(volume);
+        sink.append(source);
+    }
 }
 
-pub fn audio_thread() -> mpsc::Sender<SoundEffect> {
-    let (sender, receiver) = mpsc::channel();
+pub enum Command {
+    ToggleMuted,
+    PlayEffect(SoundEffect),
+}
+
+pub fn audio_thread() -> mpsc::Sender<Command> {
+    let (sender, receiver) = mpsc::channel::<Command>();
 
     let _ = std::thread::spawn(move || {
         let (_stream, stream_handle) = OutputStream::try_default().unwrap();
         let music_sink = Sink::try_new(&stream_handle).unwrap();
-        let mut hard_drop_sink = Sink::try_new(&stream_handle).unwrap();
-        let mut line_clear_sink = Sink::try_new(&stream_handle).unwrap();
-        let mut move_sink = Sink::try_new(&stream_handle).unwrap();
-        let mut rotation_sink = Sink::try_new(&stream_handle).unwrap();
+        let mut hard_drop_sink = None;
+        let mut line_clear_sink = None;
+        let mut move_sink = None;
+        let mut rotation_sink = None;
+        let mut muted = false;
 
         music_sink.append(source_from_path("resources/music.ogg").repeat_infinite());
 
         loop {
-            let Ok(effect) = receiver.recv() else {
+            let Ok(cmd) = receiver.recv() else {
                 break;
             };
+
+            let effect = match cmd {
+                Command::ToggleMuted => {
+                    muted = !muted;
+                    if muted {
+                        music_sink.pause();
+                    } else {
+                        music_sink.play();
+                    }
+                    continue;
+                }
+                Command::PlayEffect(effect) => effect,
+            };
+
+            if muted {
+                continue;
+            }
 
             let base_volume = 0.5;
             match effect {

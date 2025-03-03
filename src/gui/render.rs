@@ -191,6 +191,11 @@ pub fn start_game() -> Result<(), String> {
                             game = Game::new();
                             continue;
                         }
+                        Keycode::M => {
+                            audio_thread.send(audio::Command::ToggleMuted).unwrap();
+                            continue;
+                        }
+
                         Keycode::P => {
                             paused = !paused;
                             continue;
@@ -242,9 +247,11 @@ pub fn start_game() -> Result<(), String> {
             )?;
         } else {
             let effects = game.step(&actions);
-            effects
-                .into_iter()
-                .for_each(|effect| audio_thread.send(effect).unwrap());
+            effects.into_iter().for_each(|effect| {
+                audio_thread
+                    .send(audio::Command::PlayEffect(effect))
+                    .unwrap()
+            });
         }
 
         canvas.present();
