@@ -28,26 +28,35 @@ impl Board {
         Board(board)
     }
 
-    pub fn colliding(
+    pub fn lowest_y(
         &self,
         CurrentTetromino {
             tetromino,
             direction,
-            x: cur_x,
-            y: cur_y,
+            x,
+            y,
         }: &CurrentTetromino,
-    ) -> bool {
+    ) -> i8 {
         let pattern = tetromino.direction_pattern(direction);
+        let mut y = *y;
+        loop {
+            if self.pattern_and_position_colliding(pattern, *x, y) {
+                break y - 1;
+            }
+            y += 1;
+        }
+    }
 
-        for (y, row) in pattern.iter().enumerate() {
-            for x in row
+    fn pattern_and_position_colliding(&self, pattern: [[bool; 4]; 4], x: i8, y: i8) -> bool {
+        for (y_offset, row) in pattern.iter().enumerate() {
+            for x_offset in row
                 .iter()
                 .enumerate()
                 .filter(|(_, exists)| **exists)
                 .map(|(x, _)| x)
             {
-                let x = x as i8 + cur_x;
-                let y = y as i8 + cur_y;
+                let x = x_offset as i8 + x;
+                let y = y_offset as i8 + y;
 
                 if y < 0 {
                     continue;
@@ -68,6 +77,19 @@ impl Board {
         }
 
         false
+    }
+
+    pub fn colliding(
+        &self,
+        CurrentTetromino {
+            tetromino,
+            direction,
+            x,
+            y,
+        }: &CurrentTetromino,
+    ) -> bool {
+        let pattern = tetromino.direction_pattern(direction);
+        self.pattern_and_position_colliding(pattern, *x, *y)
     }
 
     pub fn lines_cleared(&mut self) -> usize {
