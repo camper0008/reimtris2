@@ -115,11 +115,11 @@ pub trait GameUiCtx<Err>: UiCtx<Err> {
         let y = y + center(self.tile_size() * y_len as i32, height);
 
         for (x_offset, y_offset) in pattern {
-            let x_offset = x_offset - min_x_offset;
-            let y_offset = y_offset - min_y_offset;
-            let x = x + (x_offset * 24) as i32;
-            let y = y + (y_offset * 24) as i32;
-            self.fill_rect(x, y, 24, 24, &color)?;
+            let x_offset = (x_offset - min_x_offset) as i32;
+            let y_offset = (y_offset - min_y_offset) as i32;
+            let x = x + (x_offset * self.tile_size());
+            let y = y + (y_offset * self.tile_size());
+            self.fill_rect(x, y, self.tile_size(), self.tile_size(), &color)?;
         }
 
         Ok(())
@@ -183,10 +183,10 @@ pub trait GameUiCtx<Err>: UiCtx<Err> {
     fn draw_board(&mut self, board: &Board, current: &CurrentTetromino) -> Result<(), Err> {
         let (win_width, win_height) = self.window_size()?;
         self.outline_rect(
-            center(24 * Board::WIDTH as i32, win_width) - 1,
-            center(24 * Board::HEIGHT as i32, win_height) - 1,
-            24 * Board::WIDTH as i32 + 2,
-            24 * Board::HEIGHT as i32 + 2,
+            center(self.tile_size() * Board::WIDTH as i32, win_width) - 1,
+            center(self.tile_size() * Board::HEIGHT as i32, win_height) - 1,
+            self.tile_size() * Board::WIDTH as i32 + 2,
+            self.tile_size() * Board::HEIGHT as i32 + 2,
             &Rgb(255, 255, 255),
         )?;
 
