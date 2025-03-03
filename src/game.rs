@@ -250,27 +250,20 @@ impl Game {
     fn place_current_tetromino(&mut self) {
         let next = CurrentTetromino::new(self.take_next_in_bag(Tetromino::random()));
         let current = std::mem::replace(&mut self.current_tetromino, next);
-        let pattern = current.tetromino.direction_pattern(&current.direction);
+        let pattern = current.tetromino.pattern(&current.direction);
 
         if current.y <= 0 {
             self.game_over = true;
         }
 
-        for (y, row) in pattern.iter().enumerate() {
-            for x in row
-                .iter()
-                .enumerate()
-                .filter(|(_, exists)| **exists)
-                .map(|(x, _)| x)
-            {
-                let y = current.y + y as i8;
-                if y < 0 {
-                    continue;
-                }
-                let y = y as usize;
-                let x = (current.x + x as i8) as usize;
-                self.board[y][x] = Some(current.tetromino.clone());
+        for (x, y) in pattern {
+            let y = current.y + y as i8;
+            if y < 0 {
+                continue;
             }
+            let y = y as usize;
+            let x = (current.x + x as i8) as usize;
+            self.board[y][x] = Some(current.tetromino.clone());
         }
 
         self.has_swapped_held = false;

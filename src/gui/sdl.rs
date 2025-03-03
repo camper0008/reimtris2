@@ -194,6 +194,7 @@ pub fn start_game() -> Result<(), String> {
         }
 
         ctx.draw_board(&game.board, &game.current_tetromino)?;
+        ctx.draw_bag(&game.held_tetromino, &game.next_tetrominos)?;
 
         if paused {
             ctx.draw_important_text(

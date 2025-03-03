@@ -51,7 +51,19 @@ impl Tetromino {
         }
     }
 
-    pub fn direction_pattern(&self, direction: &Direction) -> [[bool; 4]; 4] {
+    pub fn pattern(&self, direction: &Direction) -> Vec<(usize, usize)> {
+        self.raw_pattern(direction)
+            .into_iter()
+            .enumerate()
+            .flat_map(|(y, row)| {
+                row.into_iter()
+                    .enumerate()
+                    .filter_map(move |(x, available)| if available { Some((x, y)) } else { None })
+            })
+            .collect()
+    }
+
+    fn raw_pattern(&self, direction: &Direction) -> [[bool; 4]; 4] {
         let dir = match self {
             Self::I => match direction {
                 Direction::Up => [

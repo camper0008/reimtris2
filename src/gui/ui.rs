@@ -1,4 +1,8 @@
-use crate::{board::Board, game::CurrentTetromino, tetromino::Tetromino};
+use crate::{
+    board::Board,
+    game::CurrentTetromino,
+    tetromino::{Direction, Tetromino},
+};
 
 pub trait UiCtx<Err> {
     fn window_size(&self) -> Result<(i32, i32), Err>;
@@ -34,25 +38,18 @@ pub trait GameUiCtx<Err>: UiCtx<Err> {
         x: i8,
         y: i8,
         color: Rgb,
-        pattern: [[bool; 4]; 4],
+        pattern: &Vec<(usize, usize)>,
         filled: bool,
     ) -> Result<(), Err> {
-        for (y_offset, row) in pattern.iter().enumerate() {
-            for x_offset in row
-                .iter()
-                .enumerate()
-                .filter(|(_, exists)| **exists)
-                .map(|(x, _)| x)
-            {
-                let x = x_offset as i8 + x;
-                let y = y_offset as i8 + y;
+        for (x_offset, y_offset) in pattern {
+            let x = *x_offset as i8 + x;
+            let y = *y_offset as i8 + y;
 
-                if y < 0 {
-                    continue;
-                }
-
-                self.draw_board_tile(x as i32, y as i32, &color, filled)?
+            if y < 0 {
+                continue;
             }
+
+            self.draw_board_tile(x as i32, y as i32, &color, filled)?
         }
         Ok(())
     }
@@ -63,10 +60,34 @@ pub trait GameUiCtx<Err>: UiCtx<Err> {
         let x = center(tile_size * Board::WIDTH as i32, win_width) + x * tile_size;
         let y = center(tile_size * Board::HEIGHT as i32, win_height) + y * tile_size;
         if filled {
-            self.fill_rect(x, y, 24, 24, color)?;
+            self.fill_rect(x, y, tile_size, tile_size, color)?;
         } else {
-            self.outline_rect(x, y, 24, 24, color)?;
+            self.outline_rect(x, y, tile_size, tile_size, color)?;
         }
+        Ok(())
+    }
+
+    fn draw_bag(&mut self, held: &Option<Tetromino>, next_up: &[Tetromino; 3]) -> Result<(), Err> {
+        let (win_width, win_height) = self.window_size()?;
+        let x = center(24 * Board::WIDTH as i32, win_width);
+        let y = center(24 * Board::HEIGHT as i32, win_height);
+
+        let size = 24 * 5;
+        let x = x - size - 16;
+
+        self.fill_rect(x, y, size, size, &Rgb(0, 0, 0))?;
+        self.outline_rect(x - 1, y - 1, size + 2, size + 2, &Rgb(255, 255, 255))?;
+
+        if let Some(tetromino) = held {
+            let color = Rgb::from_tetromino(&tetromino);
+            let pattern = tetromino.pattern(&Direction::Up);
+            for (x_offset, y_offset) in pattern {
+                let x = x + (x_offset * 24) as i32;
+                let y = y + (y_offset * 24) as i32;
+                self.fill_rect(x, y, 24, 24, &color)?;
+            }
+        }
+
         Ok(())
     }
 
@@ -90,13 +111,13 @@ pub trait GameUiCtx<Err>: UiCtx<Err> {
             }
         }
 
-        let pattern = current.tetromino.direction_pattern(&current.direction);
+        let pattern = current.tetromino.pattern(&current.direction);
 
         self.draw_tetromino_from_parts(
             current.x,
             board.lowest_y(&current),
             Rgb(255, 255, 255),
-            pattern,
+            &pattern,
             false,
         )?;
 
@@ -104,7 +125,7 @@ pub trait GameUiCtx<Err>: UiCtx<Err> {
             current.x,
             current.y,
             Rgb::from_tetromino(&current.tetromino),
-            pattern,
+            &pattern,
             true,
         )?;
 
@@ -124,9 +145,23 @@ pub trait GameUiCtx<Err>: UiCtx<Err> {
         let x = center(width, win_width);
         let y = center(height, win_height);
 
-        self.outline_rect(x - 9, y - 9, width + 18, height + 18, &Rgb(255, 255, 255))?;
+        let padding = 8;
 
-        self.fill_rect(x - 8, y - 8, width + 16, height + 16, &Rgb(16, 16, 16))?;
+        self.outline_rect(
+            x - padding - 1,
+            y - padding - 1,
+            width + padding * 2 + 2,
+            height + padding * 2 + 2,
+            &Rgb(255, 255, 255),
+        )?;
+
+        self.fill_rect(
+            x - padding,
+            y - padding,
+            width + padding * 2,
+            height + padding * 2,
+            &Rgb(16, 16, 16),
+        )?;
         self.fill_text(font, text, x, y, width, height)?;
 
         Ok(())

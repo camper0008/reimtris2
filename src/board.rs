@@ -37,42 +37,35 @@ impl Board {
             y,
         }: &CurrentTetromino,
     ) -> i8 {
-        let pattern = tetromino.direction_pattern(direction);
+        let pattern = tetromino.pattern(direction);
         let mut y = *y;
         loop {
-            if self.pattern_and_position_colliding(pattern, *x, y) {
+            if self.pattern_and_position_colliding(&pattern, *x, y) {
                 break y - 1;
             }
             y += 1;
         }
     }
 
-    fn pattern_and_position_colliding(&self, pattern: [[bool; 4]; 4], x: i8, y: i8) -> bool {
-        for (y_offset, row) in pattern.iter().enumerate() {
-            for x_offset in row
-                .iter()
-                .enumerate()
-                .filter(|(_, exists)| **exists)
-                .map(|(x, _)| x)
-            {
-                let x = x_offset as i8 + x;
-                let y = y_offset as i8 + y;
+    fn pattern_and_position_colliding(&self, pattern: &Vec<(usize, usize)>, x: i8, y: i8) -> bool {
+        for (x_offset, y_offset) in pattern {
+            let x = *x_offset as i8 + x;
+            let y = *y_offset as i8 + y;
 
-                if y < 0 {
-                    continue;
-                }
+            if y < 0 {
+                continue;
+            }
 
-                if y >= Board::HEIGHT as i8 {
-                    return true;
-                }
+            if y >= Board::HEIGHT as i8 {
+                return true;
+            }
 
-                if x < 0 || x >= Board::WIDTH as i8 {
-                    return true;
-                }
+            if x < 0 || x >= Board::WIDTH as i8 {
+                return true;
+            }
 
-                if self.0[y as usize][x as usize].is_some() {
-                    return true;
-                }
+            if self.0[y as usize][x as usize].is_some() {
+                return true;
             }
         }
 
@@ -88,8 +81,7 @@ impl Board {
             y,
         }: &CurrentTetromino,
     ) -> bool {
-        let pattern = tetromino.direction_pattern(direction);
-        self.pattern_and_position_colliding(pattern, *x, *y)
+        self.pattern_and_position_colliding(&tetromino.pattern(direction), *x, *y)
     }
 
     pub fn lines_cleared(&mut self) -> usize {
