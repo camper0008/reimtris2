@@ -1,7 +1,6 @@
 use crate::actions::{Action, ActionsHeld};
 use crate::board::Board;
 use crate::game::{CurrentTetromino, Game};
-use crate::Rgb;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
@@ -11,146 +10,109 @@ use sdl2::ttf::Sdl2TtfContext;
 use std::time::Duration;
 
 use super::audio::{self};
+use super::ui::{Rgb, UiCtx};
 
 const WIDTH: i32 = 1000;
 const HEIGHT: i32 = 800;
 
-fn draw_board_tile(
-    canvas: &mut WindowCanvas,
-    width: usize,
-    height: usize,
-    color: &Rgb,
-    filled: bool,
-) -> Result<(), String> {
-    canvas.set_draw_color(Color::RGB(color.0, color.1, color.2));
-    let rect = Rect::new(
-        center(24 * Board::WIDTH as i32, WIDTH) + width as i32 * 24,
-        center(24 * Board::HEIGHT as i32, HEIGHT) + height as i32 * 24,
-        24,
-        24,
-    );
-    if filled {
-        canvas.fill_rect(rect)
-    } else {
-        canvas.draw_rect(rect)
-    }
-}
-
-fn center(length: i32, max: i32) -> i32 {
-    (max - length) / 2
-}
-
-fn draw_tetromino_from_parts(
-    canvas: &mut WindowCanvas,
-    x: i8,
-    y: i8,
-    color: Rgb,
-    pattern: [[bool; 4]; 4],
-    filled: bool,
-) -> Result<(), String> {
-    for (y_offset, row) in pattern.iter().enumerate() {
-        for x_offset in row
-            .iter()
-            .enumerate()
-            .filter(|(_, exists)| **exists)
-            .map(|(x, _)| x)
-        {
-            let x = x_offset as i8 + x;
-            let y = y_offset as i8 + y;
-
-            if y < 0 {
-                continue;
-            }
-
-            draw_board_tile(canvas, x as usize, y as usize, &color, filled)?
-        }
-    }
-    Ok(())
-}
-
-fn draw_board(
-    canvas: &mut WindowCanvas,
-    board: &Board,
-    current: &CurrentTetromino,
-) -> Result<(), String> {
-    canvas.set_draw_color(Color::WHITE);
-    canvas.draw_rect(Rect::new(
-        center(24 * Board::WIDTH as i32, WIDTH) - 1,
-        center(24 * Board::HEIGHT as i32, HEIGHT) - 1,
-        24 * Board::WIDTH as u32 + 2,
-        24 * Board::HEIGHT as u32 + 2,
-    ))?;
-
-    for (y, row) in board.iter().enumerate() {
-        for (x, piece) in row.iter().enumerate() {
-            let color = match piece {
-                Some(t) => Rgb::from_tetromino(t),
-                None => Rgb(0, 0, 0),
-            };
-            draw_board_tile(canvas, x, y, &color, true)?
-        }
-    }
-
-    let pattern = current.tetromino.direction_pattern(&current.direction);
-
-    draw_tetromino_from_parts(
-        canvas,
-        current.x,
-        board.lowest_y(&current),
-        Rgb(255, 255, 255),
-        pattern,
-        false,
-    )?;
-
-    draw_tetromino_from_parts(
-        canvas,
-        current.x,
-        current.y,
-        Rgb::from_tetromino(&current.tetromino),
-        pattern,
-        true,
-    )?;
-
-    Ok(())
-}
-
-fn font_texture<'font, 'a, C>(
-    text: &'a str,
+fn font_texture<'font, 'a, P: AsRef<std::path::Path>, Text: AsRef<str>, C>(
+    font: P,
+    text: Text,
     ttf_context: &'a Sdl2TtfContext,
     texture_creator: &'font TextureCreator<C>,
 ) -> Result<Texture<'font>, String> {
-    let font = ttf_context.load_font("resources/josenfin_sans_regular.ttf", 24)?;
-    let game_over_text = font.render(text).solid(Color::RGB(255, 255, 255)).unwrap();
+    let font = ttf_context.load_font(font, 24)?;
+    let game_over_text = font
+        .render(text.as_ref())
+        .solid(Color::RGB(255, 255, 255))
+        .map_err(|err| err.to_string())?;
     let texture = texture_creator
         .create_texture_from_surface(game_over_text)
-        .unwrap();
+        .map_err(|err| err.to_string())?;
 
     Ok(texture)
 }
 
-fn draw_important_text(
-    text: &str,
-    canvas: &mut WindowCanvas,
-    ttf_context: &Sdl2TtfContext,
-) -> Result<(), String> {
-    let texture_creator = canvas.texture_creator();
-    let texture = font_texture(text, &ttf_context, &texture_creator)?;
+struct SdlUiCtx {
+    canvas: WindowCanvas,
+    ttf: Sdl2TtfContext,
+}
 
-    let size = texture.query();
-    let width = size.width;
-    let height = size.height;
+impl SdlUiCtx {
+    fn present(&mut self) {
+        self.canvas.present();
+    }
+}
 
-    let x = center(width as i32, WIDTH);
-    let y = center(height as i32, HEIGHT);
+impl UiCtx<String> for SdlUiCtx {
+    fn window_size(&self) -> Result<(i32, i32), String> {
+        let (width, height) = self.canvas.window().size();
+        Ok((width as i32, height as i32))
+    }
 
-    canvas.set_draw_color(Color::WHITE);
-    canvas.draw_rect(Rect::new(x - 9, y - 9, width + 18, height + 18))?;
+    fn fill_rect(
+        &mut self,
+        x: i32,
+        y: i32,
+        width: i32,
+        height: i32,
+        rgb: &super::ui::Rgb,
+    ) -> Result<(), String> {
+        self.canvas.set_draw_color(Color::RGB(rgb.0, rgb.1, rgb.2));
+        self.canvas
+            .fill_rect(Rect::new(x, y, width as u32, height as u32))?;
+        Ok(())
+    }
 
-    canvas.set_draw_color(Color::RGB(16, 16, 16));
-    canvas.fill_rect(Rect::new(x - 8, y - 8, width + 16, height + 16))?;
-    canvas.copy(&texture, None, Some(Rect::new(x, y, width, height)))?;
+    fn outline_rect(
+        &mut self,
+        x: i32,
+        y: i32,
+        width: i32,
+        height: i32,
+        rgb: &super::ui::Rgb,
+    ) -> Result<(), String> {
+        self.canvas.set_draw_color(Color::RGB(rgb.0, rgb.1, rgb.2));
+        self.canvas
+            .draw_rect(Rect::new(x, y, width as u32, height as u32))?;
+        Ok(())
+    }
 
-    Ok(())
+    fn text_size<P: AsRef<std::path::Path>, Text: AsRef<str>>(
+        &mut self,
+        font: P,
+        text: Text,
+    ) -> Result<(i32, i32), String> {
+        let texture_creator = self.canvas.texture_creator();
+        let texture = font_texture(font, text, &self.ttf, &texture_creator)?;
+        let query = texture.query();
+        Ok((query.width as i32, query.height as i32))
+    }
+
+    fn fill_text<P: AsRef<std::path::Path>, Text: AsRef<str>>(
+        &mut self,
+        font: P,
+        text: Text,
+        x: i32,
+        y: i32,
+        width: i32,
+        height: i32,
+    ) -> Result<(), String> {
+        let texture_creator = self.canvas.texture_creator();
+        let texture = font_texture(font, text, &self.ttf, &texture_creator)?;
+        self.canvas.copy(
+            &texture,
+            None,
+            Some(Rect::new(x, y, width as u32, height as u32)),
+        )?;
+        Ok(())
+    }
+
+    fn clear(&mut self, rgb: &Rgb) -> Result<(), String> {
+        self.canvas.set_draw_color(Color::RGB(rgb.0, rgb.1, rgb.2));
+        self.canvas.clear();
+        Ok(())
+    }
 }
 
 pub fn start_game() -> Result<(), String> {
@@ -170,11 +132,14 @@ pub fn start_game() -> Result<(), String> {
         .build()
         .unwrap();
 
-    let mut canvas = window.into_canvas().build().unwrap();
+    let canvas = window.into_canvas().build().unwrap();
+    let mut ctx = SdlUiCtx {
+        canvas,
+        ttf: ttf_context,
+    };
     let mut event_pump = sdl_context.event_pump()?;
     'running: loop {
-        canvas.set_draw_color(Color::RGB(16, 16, 16));
-        canvas.clear();
+        ctx.clear(&Rgb(16, 16, 16))?;
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit { .. }
@@ -231,19 +196,17 @@ pub fn start_game() -> Result<(), String> {
             }
         }
 
-        draw_board(&mut canvas, &game.board, &game.current_tetromino)?;
+        ctx.draw_board(&game.board, &game.current_tetromino)?;
 
         if paused {
-            draw_important_text(
+            ctx.draw_important_text(
+                "resources/josenfin_sans_regular.ttf",
                 "game paused o_o... press [p] to unpause !!",
-                &mut canvas,
-                &ttf_context,
             )?;
         } else if game.game_over {
-            draw_important_text(
+            ctx.draw_important_text(
+                "resources/josenfin_sans_regular.ttf",
                 "game over T_T... press [enter] 2 restart :D",
-                &mut canvas,
-                &ttf_context,
             )?;
         } else {
             let effects = game.step(&actions);
@@ -254,7 +217,7 @@ pub fn start_game() -> Result<(), String> {
             });
         }
 
-        canvas.present();
+        ctx.present();
         ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
     }
 }
