@@ -157,7 +157,6 @@ impl Game {
         let mut points =
             self.score.level as f32 * Score::point_multiplier_from_lines_cleared(lines_cleared);
 
-        // Back to back tetris
         if self.score.back_to_back && lines_cleared == 4 {
             points *= 1.5;
         }
