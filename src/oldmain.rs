@@ -1219,4 +1219,3 @@ unsafe fn create_popup_message(info: &panic::PanicInfo, path: PathBuf) {
 fn create_popup_message(info: &panic::PanicInfo) {
     // Do nothing
 }
-

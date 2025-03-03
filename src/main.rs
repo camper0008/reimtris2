@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use actions::{Controls, ControlsHeld};
 use board::Board;
 use tetromino::{Direction, DirectionDiff, Tetromino};
@@ -44,6 +42,7 @@ struct Score {
     points: usize,
     lines: usize,
     combo: usize,
+    back_to_back: bool,
 }
 
 impl Score {
@@ -53,6 +52,34 @@ impl Score {
             points: 0,
             lines: 0,
             combo: 0,
+            back_to_back: false,
+        }
+    }
+
+    fn level_up(&mut self, lines_cleared: usize) {
+        self.lines += lines_cleared;
+        if self.lines > self.level * 5 {
+            self.level += 1;
+            self.lines = 0;
+        }
+    }
+
+    fn point_multiplier_from_lines_cleared(lines_cleared: usize) -> f32 {
+        match lines_cleared {
+            0 => 0.0,
+            1 => 100.0,
+            2 => 300.0,
+            3 => 500.0,
+            4 => 800.0,
+            _ => unreachable!("we cannot clear more than 4 lines"),
+        }
+    }
+
+    fn combos(&self, lines_cleared: usize) -> usize {
+        if lines_cleared > 0 {
+            self.combo * 50 * self.level
+        } else {
+            0
         }
     }
 }
@@ -66,10 +93,20 @@ impl Game {
     }
 
     fn hard_drop(&mut self, controls: &ControlsHeld) {
-        if controls.contains_key(&Controls::HardDrop) {
-            loop {
-                todo!()
+        if !controls.just_pressed(self.ticks, &Controls::HardDrop) {
+            return;
+        }
+        let start_y = self.current_tetromino.y;
+        loop {
+            self.current_tetromino.y += 1;
+            if !self.board.colliding(&self.current_tetromino) {
+                continue;
             }
+            self.current_tetromino.y -= 1;
+            self.score.points += (self.current_tetromino.y - start_y) as usize * 2;
+            self.place_current_tetromino();
+            self.check_line_clears();
+            break;
         }
     }
 
@@ -88,7 +125,6 @@ impl Game {
             self.current_tetromino.y -= 1;
             self.place_current_tetromino();
             self.check_line_clears();
-            self.has_swapped_held = false;
         } else if controls.contains_key(&Controls::SoftDrop) {
             self.score.points += 1;
         }
@@ -96,11 +132,9 @@ impl Game {
 
     fn move_horizontally(&mut self, controls: &ControlsHeld) {
         for key in [Controls::Left, Controls::Right] {
-            let Some(held_since) = controls.get(&key) else {
-                continue;
-            };
-            let held_for = self.ticks - held_since;
-            if held_for < 15 {
+            let just_pressed = controls.just_pressed(self.ticks, &key);
+            let long_press = controls.held_for(self.ticks, &key, |held_for| held_for > 15);
+            if !just_pressed && !long_press {
                 continue;
             }
             let offset = match key {
@@ -115,15 +149,57 @@ impl Game {
         }
     }
 
-    fn check_line_clears(&self) {
-        todo!()
+    fn check_line_clears(&mut self) {
+        let lines_cleared = self.board.lines_cleared();
+
+        self.score.level_up(lines_cleared);
+
+        let mut points =
+            self.score.level as f32 * Score::point_multiplier_from_lines_cleared(lines_cleared);
+
+        // Back to back tetris
+        if self.score.back_to_back && lines_cleared == 4 {
+            points *= 1.5;
+        }
+        points += self.score.combos(lines_cleared) as f32;
+
+        self.score.points += points as usize;
+
+        if lines_cleared == 4 {
+            self.score.back_to_back = true;
+        } else if lines_cleared > 0 {
+            self.score.back_to_back = false;
+        }
+
+        if lines_cleared > 0 {
+            self.score.combo += 1;
+            // play_line_clears_sound();
+        } else {
+            self.score.combo = 0;
+            // play_hard_drop_sound();
+        }
     }
 
     fn step(&mut self, controls: &ControlsHeld) {
-        // TODO: ensure game is running at 60fps (`if !check_update_time(context, 60) { return; }`)
-        self.ticks += 1;
+        // TODO: ensure game is running at 60 ticks per second? (`if !check_update_time(context, 60) { return; }`)
+        self.hard_drop(controls);
         self.soft_drop(controls);
         self.move_horizontally(controls);
+
+        if controls.just_pressed(self.ticks, &Controls::Swap) {
+            self.try_swap_tetromino();
+        }
+
+        for (control, direction) in [
+            (Controls::RotateCw, DirectionDiff::Cw),
+            (Controls::RotateCcw, DirectionDiff::Ccw),
+        ] {
+            if !controls.just_pressed(self.ticks, &control) {
+                continue;
+            }
+            self.try_rotate(direction);
+        }
+        self.ticks += 1;
     }
 
     fn try_rotate(&mut self, diff: DirectionDiff) -> bool {
@@ -168,6 +244,8 @@ impl Game {
                 self.board[y][x] = Some(current.tetromino.clone());
             }
         }
+
+        self.has_swapped_held = false;
     }
 
     fn try_swap_tetromino(&mut self) {

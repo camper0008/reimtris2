@@ -2,6 +2,7 @@ use std::ops::{Deref, DerefMut};
 
 use crate::{CurrentTetromino, Tetromino};
 
+#[derive(PartialEq)]
 pub struct Board([[Option<Tetromino>; Self::WIDTH]; Self::HEIGHT]);
 
 impl Deref for Board {
@@ -67,5 +68,143 @@ impl Board {
         }
 
         false
+    }
+
+    pub fn lines_cleared(&mut self) -> usize {
+        let line_clears: Vec<_> = self
+            .iter()
+            .enumerate()
+            .filter_map(|(i, row)| if !row.contains(&None) { Some(i) } else { None })
+            .collect();
+
+        let mut lines_cleared = 0;
+        for i in (0..self.len()).rev() {
+            let blank_line = std::array::from_fn(|_| None);
+            let line = std::mem::replace(&mut self[i], blank_line);
+            self[i + lines_cleared] = line;
+
+            if line_clears.contains(&i) {
+                lines_cleared += 1;
+            }
+        }
+        lines_cleared
+    }
+}
+
+impl std::fmt::Debug for Board {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let t = self
+            .0
+            .iter()
+            .map(|row| {
+                row.iter()
+                    .map(|t| match t {
+                        Some(t) => match t {
+                            Tetromino::I => "I",
+                            Tetromino::J => "J",
+                            Tetromino::L => "L",
+                            Tetromino::O => "O",
+                            Tetromino::S => "S",
+                            Tetromino::T => "T",
+                            Tetromino::Z => "Z",
+                        },
+                        None => ".",
+                    })
+                    .collect::<Vec<_>>()
+                    .join("")
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        write!(f, "{t}")
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::Board;
+
+    fn board_from_str(str: &'static str) -> Board {
+        use crate::Tetromino::*;
+        Board(
+            str.split_whitespace()
+                .map(|row| {
+                    let row: [char; Board::WIDTH] = row
+                        .chars()
+                        .collect::<Vec<_>>()
+                        .try_into()
+                        .expect("invalid board row");
+                    row.map(|char| match char {
+                        '.' => None,
+                        'I' => Some(I),
+                        'J' => Some(J),
+                        'L' => Some(L),
+                        'O' => Some(O),
+                        'S' => Some(S),
+                        'T' => Some(T),
+                        'Z' => Some(Z),
+                        c => panic!("invalid board char '{c}'"),
+                    })
+                })
+                .collect::<Vec<_>>()
+                .try_into()
+                .expect("invalid board content"),
+        )
+    }
+
+    #[test]
+    fn line_clear() {
+        let mut board = board_from_str(
+            "
+            ..........
+            ..........
+            ..........
+            ..........
+            ..OOOOOOOO
+            OOOOOOOO..
+            JJJJJJJJJJ
+            JJJJJJJJJJ
+            ..JJJJJJJJ
+            JJJJJJJJ..
+            JJJJJJJJ..
+            JJJJJJJJ..
+            JJJJJJJJJJ
+            JJJJJJJJJJ
+            JJJJJJJJJJ
+            JJJJJJJJJJ
+            JJJJJJJJJJ
+            JJJJJJJJJJ
+            JJJJJJJJJJ
+            JJJJJJJJJJ
+        ",
+        );
+
+        let after = board_from_str(
+            "
+            ..........
+            ..........
+            ..........
+            ..........
+            ..........
+            ..........
+            ..........
+            ..........
+            ..........
+            ..........
+            ..........
+            ..........
+            ..........
+            ..........
+            ..OOOOOOOO
+            OOOOOOOO..
+            ..JJJJJJJJ
+            JJJJJJJJ..
+            JJJJJJJJ..
+            JJJJJJJJ..
+        ",
+        );
+
+        assert_eq!(board.lines_cleared(), 10);
+
+        assert_eq!(board, after);
     }
 }
