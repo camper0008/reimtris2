@@ -1,6 +1,6 @@
 use std::ops::{Deref, DerefMut};
 
-use crate::{CurrentTetromino, Tetromino};
+use crate::{game::CurrentTetromino, Tetromino};
 
 #[derive(PartialEq)]
 pub struct Board([[Option<Tetromino>; Self::WIDTH]; Self::HEIGHT]);

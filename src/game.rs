@@ -2,11 +2,11 @@ use crate::actions::{Controls, ControlsHeld};
 use crate::board::Board;
 use crate::tetromino::{Direction, DirectionDiff, Tetromino};
 
-struct CurrentTetromino {
-    tetromino: Tetromino,
-    direction: Direction,
-    x: i8,
-    y: i8,
+pub struct CurrentTetromino {
+    pub tetromino: Tetromino,
+    pub direction: Direction,
+    pub x: i8,
+    pub y: i8,
 }
 
 impl CurrentTetromino {
@@ -258,7 +258,7 @@ impl Game {
 
 #[cfg(test)]
 mod test {
-    use crate::{Board, CurrentTetromino, Game, Score, Tetromino};
+    use super::{Board, CurrentTetromino, Game, Score, Tetromino};
 
     #[test]
     fn advance_bag() {
