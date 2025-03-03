@@ -371,6 +371,7 @@ pub fn start_game() -> Result<(), String> {
                 }
                 Event::KeyDown {
                     keycode: Some(keycode),
+                    repeat: false,
                     ..
                 } => {
                     let Some(key) = Key::from_sdl_keycode(keycode) else {
@@ -409,6 +410,7 @@ pub fn start_game() -> Result<(), String> {
                 }
                 Event::KeyUp {
                     keycode: Some(keycode),
+                    repeat: false,
                     ..
                 } => {
                     let Some(key) = Key::from_sdl_keycode(keycode) else {
