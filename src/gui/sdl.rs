@@ -11,9 +11,6 @@ use std::time::Duration;
 use super::audio::{self};
 use super::ui::{GameUiCtx, Rgb, UiCtx};
 
-const WIDTH: i32 = 1000;
-const HEIGHT: i32 = 800;
-
 fn font_texture<'font, 'a, P: AsRef<std::path::Path>, Text: AsRef<str>, C>(
     font: P,
     text: Text,
@@ -126,7 +123,7 @@ pub fn start_game() -> Result<(), String> {
     let video_subsystem = sdl_context.video()?;
 
     let window = video_subsystem
-        .window("reimtris2", WIDTH as u32, HEIGHT as u32)
+        .window("reimtris2", 1000, 800)
         .resizable()
         .position_centered()
         .build()
