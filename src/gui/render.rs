@@ -1,16 +1,16 @@
 use crate::actions::{Action, ActionsHeld};
 use crate::board::Board;
 use crate::game::{CurrentTetromino, Game};
-use crate::tetromino::Tetromino;
 use crate::Rgb;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 use sdl2::render::{Texture, TextureCreator, WindowCanvas};
-use sdl2::rwops::RWops;
 use sdl2::ttf::Sdl2TtfContext;
 use std::time::Duration;
+
+use super::audio::{self};
 
 const WIDTH: i32 = 1000;
 const HEIGHT: i32 = 800;
@@ -119,10 +119,7 @@ fn font_texture<'font, 'a, C>(
     ttf_context: &'a Sdl2TtfContext,
     texture_creator: &'font TextureCreator<C>,
 ) -> Result<Texture<'font>, String> {
-    let font = ttf_context.load_font_from_rwops(
-        RWops::from_bytes(include_bytes!("res/josenfin_sans_regular.ttf"))?,
-        24,
-    )?;
+    let font = ttf_context.load_font("resources/josenfin_sans_regular.ttf", 24)?;
     let game_over_text = font.render(text).solid(Color::RGB(255, 255, 255)).unwrap();
     let texture = texture_creator
         .create_texture_from_surface(game_over_text)
@@ -160,6 +157,8 @@ pub fn start_game() -> Result<(), String> {
     let mut game = Game::new();
     let mut actions = ActionsHeld::new();
     let mut paused = false;
+
+    let audio_thread = audio::audio_thread();
 
     let sdl_context = sdl2::init()?;
     let ttf_context = sdl2::ttf::init().unwrap();
@@ -242,7 +241,10 @@ pub fn start_game() -> Result<(), String> {
                 &ttf_context,
             )?;
         } else {
-            game.step(&actions);
+            let effects = game.step(&actions);
+            effects
+                .into_iter()
+                .for_each(|effect| audio_thread.send(effect).unwrap());
         }
 
         canvas.present();

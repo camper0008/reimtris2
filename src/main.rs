@@ -3,7 +3,7 @@ use tetromino::Tetromino;
 mod actions;
 mod board;
 mod game;
-mod sdl_impl;
+mod gui;
 mod tetromino;
 
 struct Rgb(u8, u8, u8);
@@ -23,5 +23,5 @@ impl Rgb {
 }
 
 fn main() {
-    sdl_impl::start_game();
+    gui::start_game().unwrap();
 }
