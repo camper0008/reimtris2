@@ -22,6 +22,7 @@ impl CurrentTetromino {
 }
 
 pub struct Game {
+    pub game_over: bool,
     pub board: Board,
     pub next_tetrominos: [Tetromino; 3],
     pub current_tetromino: CurrentTetromino,
@@ -31,11 +32,18 @@ pub struct Game {
     pub ticks: usize,
 }
 
-struct Score {
-    level: usize,
-    points: usize,
-    lines: usize,
-    combo: usize,
+pub enum SoundEffect {
+    HardDrop,
+    LineClear(usize),
+    Move,
+    Rotation,
+}
+
+pub struct Score {
+    pub level: usize,
+    pub points: usize,
+    pub lines: usize,
+    pub combo: usize,
     back_to_back: bool,
 }
 
@@ -81,6 +89,7 @@ impl Score {
 impl Game {
     pub fn new() -> Self {
         Self {
+            game_over: false,
             board: Board::new(),
             next_tetrominos: std::array::from_fn(|_| Tetromino::random()),
             current_tetromino: CurrentTetromino::new(Tetromino::random()),
@@ -97,7 +106,7 @@ impl Game {
         last
     }
 
-    fn hard_drop(&mut self, actions: &ActionsHeld) {
+    fn try_hard_drop(&mut self, actions: &ActionsHeld, effects: &mut Vec<SoundEffect>) {
         if !actions.just_pressed(self.ticks, &Action::HardDrop) {
             return;
         }
@@ -110,12 +119,12 @@ impl Game {
             self.current_tetromino.y -= 1;
             self.score.points += (self.current_tetromino.y - start_y) as usize * 2;
             self.place_current_tetromino();
-            self.check_line_clears();
+            self.check_line_clears(effects);
             break;
         }
     }
 
-    fn soft_drop(&mut self, actions: &ActionsHeld) {
+    fn soft_drop(&mut self, actions: &ActionsHeld, effects: &mut Vec<SoundEffect>) {
         let mut delay = 32 - self.score.level * 2;
         if actions.contains_key(&Action::SoftDrop) {
             delay /= 10;
@@ -129,13 +138,13 @@ impl Game {
         if self.board.colliding(&self.current_tetromino) {
             self.current_tetromino.y -= 1;
             self.place_current_tetromino();
-            self.check_line_clears();
+            self.check_line_clears(effects);
         } else if actions.contains_key(&Action::SoftDrop) {
             self.score.points += 1;
         }
     }
 
-    fn move_horizontally(&mut self, actions: &ActionsHeld) {
+    fn try_move_horizontally(&mut self, actions: &ActionsHeld, effects: &mut Vec<SoundEffect>) {
         for key in [Action::Left, Action::Right] {
             let just_pressed = actions.just_pressed(self.ticks, &key);
             let long_press = actions.held_for(self.ticks, &key, |held_for| held_for > 15);
@@ -150,11 +159,13 @@ impl Game {
             self.current_tetromino.x += offset;
             if self.board.colliding(&self.current_tetromino) {
                 self.current_tetromino.x -= offset;
+            } else {
+                effects.push(SoundEffect::Move);
             }
         }
     }
 
-    fn check_line_clears(&mut self) {
+    fn check_line_clears(&mut self, effects: &mut Vec<SoundEffect>) {
         let lines_cleared = self.board.lines_cleared();
 
         self.score.level_up(lines_cleared);
@@ -177,20 +188,24 @@ impl Game {
 
         if lines_cleared > 0 {
             self.score.combo += 1;
-            // play_line_clears_sound();
+            effects.push(SoundEffect::LineClear(lines_cleared));
         } else {
             self.score.combo = 0;
-            // play_hard_drop_sound();
+            effects.push(SoundEffect::HardDrop);
         }
     }
 
-    pub fn step(&mut self, actions: &ActionsHeld) {
-        self.hard_drop(actions);
-        self.soft_drop(actions);
-        self.move_horizontally(actions);
+    pub fn step(&mut self, actions: &ActionsHeld) -> Vec<SoundEffect> {
+        if self.game_over {
+            panic!("should check if game is over before stepping");
+        }
+        let mut effects = Vec::new();
+        self.try_hard_drop(actions, &mut effects);
+        self.soft_drop(actions, &mut effects);
+        self.try_move_horizontally(actions, &mut effects);
 
         if actions.just_pressed(self.ticks, &Action::Swap) {
-            self.try_swap_tetromino();
+            self.try_swap_tetromino(&mut effects);
         }
 
         for (control, direction) in [
@@ -200,16 +215,18 @@ impl Game {
             if !actions.just_pressed(self.ticks, &control) {
                 continue;
             }
-            self.try_rotate(direction);
+            self.try_rotate(direction, &mut effects);
         }
         self.ticks += 1;
+        effects
     }
 
-    fn try_rotate(&mut self, diff: DirectionDiff) -> bool {
+    fn try_rotate(&mut self, diff: DirectionDiff, effects: &mut Vec<SoundEffect>) {
         let rotated = self.current_tetromino.direction.rotate(&diff);
         let old_direction = std::mem::replace(&mut self.current_tetromino.direction, rotated);
         if !self.board.colliding(&self.current_tetromino) {
-            return true;
+            effects.push(SoundEffect::Rotation);
+            return;
         }
         let wall_kicks = self
             .current_tetromino
@@ -220,20 +237,24 @@ impl Game {
             self.current_tetromino.x += x;
             self.current_tetromino.y += y;
             if !(self.board.colliding(&self.current_tetromino)) {
-                return true;
+                effects.push(SoundEffect::Rotation);
+                return;
             }
             self.current_tetromino.x -= x;
             self.current_tetromino.y -= y;
         }
 
         self.current_tetromino.direction = old_direction;
-        false
     }
 
     fn place_current_tetromino(&mut self) {
         let next = CurrentTetromino::new(self.take_next_in_bag(Tetromino::random()));
         let current = std::mem::replace(&mut self.current_tetromino, next);
         let pattern = current.tetromino.direction_pattern(&current.direction);
+
+        if current.y <= 0 {
+            self.game_over = true;
+        }
 
         for (y, row) in pattern.iter().enumerate() {
             for x in row
@@ -242,7 +263,11 @@ impl Game {
                 .filter(|(_, exists)| **exists)
                 .map(|(x, _)| x)
             {
-                let y = (current.y + y as i8) as usize;
+                let y = current.y + y as i8;
+                if y < 0 {
+                    continue;
+                }
+                let y = y as usize;
                 let x = (current.x + x as i8) as usize;
                 self.board[y][x] = Some(current.tetromino.clone());
             }
@@ -251,7 +276,7 @@ impl Game {
         self.has_swapped_held = false;
     }
 
-    fn try_swap_tetromino(&mut self) {
+    fn try_swap_tetromino(&mut self, effects: &mut Vec<SoundEffect>) {
         if self.has_swapped_held {
             return;
         }
@@ -263,6 +288,7 @@ impl Game {
         let current_tetromino = CurrentTetromino::new(held_or_first_in_bag_tetromino);
         let old_tetromino = std::mem::replace(&mut self.current_tetromino, current_tetromino);
         self.held_tetromino.replace(old_tetromino.tetromino);
+        effects.push(SoundEffect::Rotation);
     }
 }
 
@@ -273,6 +299,7 @@ mod test {
     #[test]
     fn advance_bag() {
         let mut game = Game {
+            game_over: false,
             board: Board::new(),
             score: Score::new(),
             next_tetrominos: [Tetromino::I, Tetromino::J, Tetromino::O],
