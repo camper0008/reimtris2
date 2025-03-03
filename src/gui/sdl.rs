@@ -6,6 +6,8 @@ use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 use sdl2::render::{Texture, TextureCreator, WindowCanvas};
 use sdl2::ttf::Sdl2TtfContext;
+use serde::{Deserialize, Serialize};
+use std::fs;
 use std::time::Duration;
 
 use super::audio::{self};
@@ -111,10 +113,227 @@ impl UiCtx<String> for SdlUiCtx {
     }
 }
 
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "key")]
+enum Key {
+    Zero,
+    One,
+    Two,
+    Three,
+    Four,
+    Five,
+    Six,
+    Seven,
+    Eight,
+    Nine,
+    A,
+    B,
+    C,
+    D,
+    E,
+    F,
+    G,
+    H,
+    I,
+    J,
+    K,
+    L,
+    M,
+    N,
+    O,
+    P,
+    Q,
+    R,
+    S,
+    T,
+    U,
+    V,
+    W,
+    X,
+    Y,
+    Z,
+    Up,
+    Down,
+    Left,
+    Right,
+    Enter,
+    Backspace,
+    Space,
+}
+
+impl Key {
+    fn from_sdl_keycode(keycode: Keycode) -> Option<Key> {
+        let v = match keycode {
+            Keycode::Num0 | Keycode::Kp0 => Key::Zero,
+            Keycode::Num1 | Keycode::Kp1 => Key::One,
+            Keycode::Num2 | Keycode::Kp2 => Key::Two,
+            Keycode::Num3 | Keycode::Kp3 => Key::Three,
+            Keycode::Num4 | Keycode::Kp4 => Key::Four,
+            Keycode::Num5 | Keycode::Kp5 => Key::Five,
+            Keycode::Num6 | Keycode::Kp6 => Key::Six,
+            Keycode::Num7 | Keycode::Kp7 => Key::Seven,
+            Keycode::Num8 | Keycode::Kp8 => Key::Eight,
+            Keycode::Num9 | Keycode::Kp9 => Key::Nine,
+            Keycode::A => Key::A,
+            Keycode::B => Key::B,
+            Keycode::C => Key::C,
+            Keycode::D => Key::D,
+            Keycode::E => Key::E,
+            Keycode::F => Key::F,
+            Keycode::G => Key::G,
+            Keycode::H => Key::H,
+            Keycode::I => Key::I,
+            Keycode::J => Key::J,
+            Keycode::K => Key::K,
+            Keycode::L => Key::L,
+            Keycode::M => Key::M,
+            Keycode::N => Key::N,
+            Keycode::O => Key::O,
+            Keycode::P => Key::P,
+            Keycode::Q => Key::Q,
+            Keycode::R => Key::R,
+            Keycode::S => Key::S,
+            Keycode::T => Key::T,
+            Keycode::U => Key::U,
+            Keycode::V => Key::V,
+            Keycode::W => Key::W,
+            Keycode::X => Key::X,
+            Keycode::Y => Key::Y,
+            Keycode::Z => Key::Z,
+            Keycode::Up => Key::Up,
+            Keycode::Down => Key::Down,
+            Keycode::Left => Key::Left,
+            Keycode::Right => Key::Right,
+            Keycode::Return => Key::Enter,
+            Keycode::Backspace => Key::Backspace,
+            Keycode::Space => Key::Space,
+            _ => return None,
+        };
+        Some(v)
+    }
+}
+
+impl std::fmt::Display for Key {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let val = match self {
+            Key::Zero => "0",
+            Key::One => "1",
+            Key::Two => "2",
+            Key::Three => "3",
+            Key::Four => "4",
+            Key::Five => "5",
+            Key::Six => "6",
+            Key::Seven => "7",
+            Key::Eight => "8",
+            Key::Nine => "9",
+            Key::A => "A",
+            Key::B => "B",
+            Key::C => "C",
+            Key::D => "D",
+            Key::E => "E",
+            Key::F => "F",
+            Key::G => "G",
+            Key::H => "H",
+            Key::I => "I",
+            Key::J => "J",
+            Key::K => "K",
+            Key::L => "L",
+            Key::M => "M",
+            Key::N => "N",
+            Key::O => "O",
+            Key::P => "P",
+            Key::Q => "Q",
+            Key::R => "R",
+            Key::S => "S",
+            Key::T => "T",
+            Key::U => "U",
+            Key::V => "V",
+            Key::W => "W",
+            Key::X => "X",
+            Key::Y => "Y",
+            Key::Z => "Z",
+            Key::Up => "Up",
+            Key::Down => "Down",
+            Key::Left => "Left",
+            Key::Right => "Right",
+            Key::Enter => "Enter",
+            Key::Backspace => "Backspace",
+            Key::Space => "Space",
+        };
+        write!(f, "{val}")
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Config {
+    reimtris1_feature_parity: bool,
+    restart: Vec<Key>,
+    left: Vec<Key>,
+    right: Vec<Key>,
+    rotate_cw: Vec<Key>,
+    rotate_ccw: Vec<Key>,
+    soft_drop: Vec<Key>,
+    hard_drop: Vec<Key>,
+    swap: Vec<Key>,
+    pause: Vec<Key>,
+    toggle_mute: Vec<Key>,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            reimtris1_feature_parity: false,
+            restart: vec![Key::Enter, Key::Space],
+            left: vec![Key::Left],
+            right: vec![Key::Right],
+            rotate_cw: vec![Key::X],
+            rotate_ccw: vec![Key::Z],
+            soft_drop: vec![Key::Down],
+            hard_drop: vec![Key::Space],
+            swap: vec![Key::C],
+            pause: vec![Key::P],
+            toggle_mute: vec![Key::M],
+        }
+    }
+}
+
+fn config_from_file<P: AsRef<std::path::Path>>(path: P) -> Result<Config, String> {
+    let Some(config) = fs::read_to_string(path.as_ref()).ok() else {
+        let config = Config::default();
+        {
+            println!("could not get config! attempting to create default...");
+            let config = toml::to_string(&config).map_err(|err| err.to_string())?;
+            fs::write(path, config).map_err(|err| err.to_string())?;
+        }
+        return Ok(config);
+    };
+    let Some(config) = toml::from_str(&config).ok() else {
+        println!("womp womp, config contains an invalid config, attempting to reset to default...");
+        let config = Config::default();
+        {
+            let config = toml::to_string(&config).map_err(|err| err.to_string())?;
+            fs::write(path, config).map_err(|err| err.to_string())?;
+        }
+        return Ok(config);
+    };
+    Ok(config)
+}
+
 pub fn start_game() -> Result<(), String> {
     let mut game = Game::new();
     let mut actions = ActionsHeld::new();
     let mut paused = false;
+
+    let config = {
+        let base = xdg::BaseDirectories::new().map_err(|err| err.to_string())?;
+        let path = base
+            .place_config_file("reimtris2/config.toml")
+            .map_err(|err| err.to_string())?;
+        let config = config_from_file(path)?;
+        config
+    };
+
+    const FONT: &'static str = "resources/josenfin_sans_regular.ttf";
 
     let audio_thread = audio::audio_thread();
 
@@ -125,6 +344,7 @@ pub fn start_game() -> Result<(), String> {
     let window = video_subsystem
         .window("reimtris2", 1000, 800)
         .resizable()
+        .maximized()
         .position_centered()
         .build()
         .unwrap();
@@ -144,50 +364,77 @@ pub fn start_game() -> Result<(), String> {
                     keycode: Some(Keycode::Escape),
                     ..
                 } => break 'running Ok(()),
+                Event::MouseMotion { .. } => {
+                    if config.reimtris1_feature_parity {
+                        break 'running Ok(());
+                    }
+                }
                 Event::KeyDown {
                     keycode: Some(keycode),
                     ..
                 } => {
-                    let keycode = match keycode {
-                        Keycode::Return if !paused && game.game_over => {
-                            game = Game::new();
-                            continue;
-                        }
-                        Keycode::M => {
-                            audio_thread.send(audio::Command::ToggleMuted).unwrap();
-                            continue;
-                        }
-
-                        Keycode::P => {
-                            paused = !paused;
-                            continue;
-                        }
-                        Keycode::Left | Keycode::A => Action::Left,
-                        Keycode::Right | Keycode::D => Action::Right,
-                        Keycode::Down | Keycode::S => Action::SoftDrop,
-                        Keycode::Space => Action::HardDrop,
-                        Keycode::Z => Action::RotateCcw,
-                        Keycode::X => Action::RotateCw,
-                        Keycode::C => Action::Swap,
-                        _ => continue,
+                    let Some(key) = Key::from_sdl_keycode(keycode) else {
+                        continue;
                     };
-                    actions.insert(keycode, game.ticks);
+                    if config.pause.contains(&key) {
+                        paused = !paused;
+                    };
+                    if config.restart.contains(&key) && !paused && game.game_over {
+                        game = Game::new();
+                    }
+                    if config.toggle_mute.contains(&key) {
+                        audio_thread.send(audio::Command::ToggleMuted).unwrap();
+                    }
+                    if config.left.contains(&key) {
+                        actions.insert(Action::Left, game.ticks);
+                    }
+                    if config.right.contains(&key) {
+                        actions.insert(Action::Right, game.ticks);
+                    }
+                    if config.soft_drop.contains(&key) {
+                        actions.insert(Action::SoftDrop, game.ticks);
+                    }
+                    if config.hard_drop.contains(&key) {
+                        actions.insert(Action::HardDrop, game.ticks);
+                    }
+                    if config.rotate_cw.contains(&key) {
+                        actions.insert(Action::RotateCw, game.ticks);
+                    }
+                    if config.rotate_ccw.contains(&key) {
+                        actions.insert(Action::RotateCcw, game.ticks);
+                    }
+                    if config.swap.contains(&key) {
+                        actions.insert(Action::Swap, game.ticks);
+                    }
                 }
                 Event::KeyUp {
                     keycode: Some(keycode),
                     ..
                 } => {
-                    let keycode = match keycode {
-                        Keycode::Left | Keycode::A => Action::Left,
-                        Keycode::Right | Keycode::D => Action::Right,
-                        Keycode::Down | Keycode::S => Action::SoftDrop,
-                        Keycode::Space => Action::HardDrop,
-                        Keycode::Z => Action::RotateCcw,
-                        Keycode::X => Action::RotateCw,
-                        Keycode::C => Action::Swap,
-                        _ => continue,
+                    let Some(key) = Key::from_sdl_keycode(keycode) else {
+                        continue;
                     };
-                    actions.remove(&keycode);
+                    if config.left.contains(&key) {
+                        actions.remove(&Action::Left);
+                    }
+                    if config.right.contains(&key) {
+                        actions.remove(&Action::Right);
+                    }
+                    if config.soft_drop.contains(&key) {
+                        actions.remove(&Action::SoftDrop);
+                    }
+                    if config.hard_drop.contains(&key) {
+                        actions.remove(&Action::HardDrop);
+                    }
+                    if config.rotate_cw.contains(&key) {
+                        actions.remove(&Action::RotateCw);
+                    }
+                    if config.rotate_ccw.contains(&key) {
+                        actions.remove(&Action::RotateCcw);
+                    }
+                    if config.swap.contains(&key) {
+                        actions.remove(&Action::Swap);
+                    }
                 }
                 _ => {}
             }
@@ -195,17 +442,28 @@ pub fn start_game() -> Result<(), String> {
 
         ctx.draw_board(&game.board, &game.current_tetromino)?;
         ctx.draw_bag(&game.held_tetromino, &game.next_tetrominos)?;
+        ctx.draw_score(FONT, &game.score)?;
 
         if paused {
-            ctx.draw_important_text(
-                "resources/josenfin_sans_regular.ttf",
-                "game paused o_o... press [p] to unpause !!",
-            )?;
+            let keys = config
+                .pause
+                .iter()
+                .map(|v| v.to_string().to_lowercase())
+                .collect::<Vec<_>>()
+                .join(" | ");
+            let paused = format!("game paused o_o... press [{keys}] to unpause !!");
+
+            ctx.draw_important_text(FONT, paused)?;
         } else if game.game_over {
-            ctx.draw_important_text(
-                "resources/josenfin_sans_regular.ttf",
-                "game over T_T... press [enter] 2 restart :D",
-            )?;
+            let keys = config
+                .restart
+                .iter()
+                .map(|v| v.to_string().to_lowercase())
+                .collect::<Vec<_>>()
+                .join(" | ");
+
+            let game_over = format!("game over T_T... press [{keys}] 2 restart :D");
+            ctx.draw_important_text(FONT, game_over)?;
         } else {
             let effects = game.step(&actions);
             effects.into_iter().for_each(|effect| {

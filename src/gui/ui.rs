@@ -1,6 +1,6 @@
 use crate::{
     board::Board,
-    game::CurrentTetromino,
+    game::{CurrentTetromino, Score},
     tetromino::{Direction, Tetromino},
 };
 
@@ -176,6 +176,30 @@ pub trait GameUiCtx<Err>: UiCtx<Err> {
         let y = y + height + self.tile_size();
 
         self.draw_next_up(next_up, x, y, width, height)?;
+
+        Ok(())
+    }
+
+    fn draw_score<P: AsRef<std::path::Path>>(&mut self, font: P, score: &Score) -> Result<(), Err> {
+        let (win_width, win_height) = self.window_size()?;
+        let board_width = self.tile_size() * Board::WIDTH as i32;
+        let board_height = self.tile_size() * Board::HEIGHT as i32;
+        let x = center(board_width, win_width) + board_width + self.tile_size();
+        let y = center(board_height, win_height) + self.tile_size();
+
+        let level = format!("level: {}", score.level);
+        let lines = format!("lines: {}", score.lines);
+        let points = format!("points: {}", score.points);
+
+        let level_size = self.text_size(font.as_ref(), &level)?;
+        let lines_size = self.text_size(font.as_ref(), &lines)?;
+        let points_size = self.text_size(font.as_ref(), &points)?;
+
+        self.fill_text(font.as_ref(), level, x, y, level_size.0, level_size.1)?;
+        let y = y + level_size.1 + self.tile_size();
+        self.fill_text(font.as_ref(), lines, x, y, lines_size.0, lines_size.1)?;
+        let y = y + lines_size.1 + self.tile_size();
+        self.fill_text(font.as_ref(), points, x, y, points_size.0, points_size.1)?;
 
         Ok(())
     }
