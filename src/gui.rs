@@ -1,5 +1,5 @@
 mod audio;
-mod render;
+mod sdl;
 mod ui;
 
-pub use render::start_game;
+pub use sdl::start_game;

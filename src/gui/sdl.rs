@@ -1,6 +1,5 @@
 use crate::actions::{Action, ActionsHeld};
-use crate::board::Board;
-use crate::game::{CurrentTetromino, Game};
+use crate::game::Game;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
@@ -10,7 +9,7 @@ use sdl2::ttf::Sdl2TtfContext;
 use std::time::Duration;
 
 use super::audio::{self};
-use super::ui::{Rgb, UiCtx};
+use super::ui::{GameUiCtx, Rgb, UiCtx};
 
 const WIDTH: i32 = 1000;
 const HEIGHT: i32 = 800;
@@ -128,6 +127,7 @@ pub fn start_game() -> Result<(), String> {
 
     let window = video_subsystem
         .window("reimtris2", WIDTH as u32, HEIGHT as u32)
+        .resizable()
         .position_centered()
         .build()
         .unwrap();

@@ -26,7 +26,9 @@ pub trait UiCtx<Err> {
         height: i32,
     ) -> Result<(), Err>;
     fn clear(&mut self, rgb: &Rgb) -> Result<(), Err>;
+}
 
+pub trait GameUiCtx<Err>: UiCtx<Err> {
     fn draw_tetromino_from_parts(
         &mut self,
         x: i8,
@@ -130,6 +132,8 @@ pub trait UiCtx<Err> {
         Ok(())
     }
 }
+
+impl<T, Err> GameUiCtx<Err> for T where T: UiCtx<Err> {}
 
 pub struct Rgb(pub u8, pub u8, pub u8);
 
