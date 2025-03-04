@@ -2,6 +2,7 @@ use crate::actions::{Action, ActionsHeld};
 use crate::board::Board;
 use crate::tetromino::{Direction, DirectionDiff, Tetromino};
 
+#[derive(Debug)]
 pub struct CurrentTetromino {
     pub tetromino: Tetromino,
     pub direction: Direction,
@@ -18,12 +19,21 @@ impl CurrentTetromino {
             .max()
             .expect("pattern length > 0")
             + 1;
+
+        let height = tetromino
+            .pattern(&Direction::Up)
+            .into_iter()
+            .map(|(_x, y)| y)
+            .max()
+            .expect("pattern length > 0")
+            + 1;
+
         let x = ((Board::WIDTH - width) / 2) as i8;
         Self {
             tetromino,
             direction: Direction::Up,
             x,
-            y: -1,
+            y: -(height as i8),
         }
     }
 }
@@ -259,7 +269,14 @@ impl Game {
         let current = std::mem::replace(&mut self.current_tetromino, next);
         let pattern = current.tetromino.pattern(&current.direction);
 
-        if current.y <= 0 {
+        let y_start = pattern
+            .iter()
+            .map(|(_x, y)| *y)
+            .min()
+            .expect("pattern length > 0") as i8;
+
+        let y = current.y + y_start;
+        if y < 0 {
             self.game_over = true;
         }
 

@@ -52,15 +52,15 @@ impl Board {
             let x = *x_offset as i8 + x;
             let y = *y_offset as i8 + y;
 
+            if x < 0 || x >= Board::WIDTH as i8 {
+                return true;
+            }
+
             if y < 0 {
                 continue;
             }
 
             if y >= Board::HEIGHT as i8 {
-                return true;
-            }
-
-            if x < 0 || x >= Board::WIDTH as i8 {
                 return true;
             }
 

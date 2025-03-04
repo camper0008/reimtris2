@@ -301,18 +301,20 @@ fn config_from_file<P: AsRef<std::path::Path>>(path: P) -> Result<Config, String
     let Some(config) = fs::read_to_string(path.as_ref()).ok() else {
         let config = Config::default();
         {
-            println!("could not get config! attempting to create default...");
+            println!("could not get config! creating default...");
             let config = toml::to_string(&config).map_err(|err| err.to_string())?;
-            fs::write(path, config).map_err(|err| err.to_string())?;
+            fs::write(path.as_ref(), config).map_err(|err| err.to_string())?;
+            println!("created config at '{}'", path.as_ref().display());
         }
         return Ok(config);
     };
     let Some(config) = toml::from_str(&config).ok() else {
-        println!("womp womp, config contains an invalid config, attempting to reset to default...");
+        println!("womp womp, config contains an invalid config, resetting...");
         let config = Config::default();
         {
             let config = toml::to_string(&config).map_err(|err| err.to_string())?;
-            fs::write(path, config).map_err(|err| err.to_string())?;
+            fs::write(path.as_ref(), config).map_err(|err| err.to_string())?;
+            println!("created config at '{}'", path.as_ref().display());
         }
         return Ok(config);
     };

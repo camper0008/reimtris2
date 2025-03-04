@@ -9,6 +9,7 @@ pub enum Tetromino {
     Z,
 }
 
+#[derive(Debug)]
 pub enum Direction {
     Up,
     Right,
