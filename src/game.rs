@@ -11,7 +11,7 @@ pub struct CurrentTetromino {
 
 impl CurrentTetromino {
     fn new(tetromino: Tetromino) -> Self {
-        const PIECE_WIDTH: i8 = 2;
+        const PIECE_WIDTH: i8 = 4;
         Self {
             tetromino,
             direction: Direction::Up,
