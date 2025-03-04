@@ -11,11 +11,18 @@ pub struct CurrentTetromino {
 
 impl CurrentTetromino {
     fn new(tetromino: Tetromino) -> Self {
-        const PIECE_WIDTH: i8 = 4;
+        let width = tetromino
+            .pattern(&Direction::Up)
+            .into_iter()
+            .map(|(x, _y)| x)
+            .max()
+            .expect("pattern length > 0")
+            + 1;
+        let x = ((Board::WIDTH - width) / 2) as i8;
         Self {
             tetromino,
             direction: Direction::Up,
-            x: (Board::WIDTH as i8 - PIECE_WIDTH) / 2,
+            x,
             y: -1,
         }
     }
