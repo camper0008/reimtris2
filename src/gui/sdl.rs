@@ -1,4 +1,5 @@
 use crate::actions::{Action, ActionsHeld};
+use crate::config::{Config, Key};
 use crate::game::Game;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
@@ -6,8 +7,6 @@ use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 use sdl2::render::{Texture, TextureCreator, WindowCanvas};
 use sdl2::ttf::Sdl2TtfContext;
-use serde::{Deserialize, Serialize};
-use std::fs;
 use std::time::Duration;
 
 use super::audio::{self};
@@ -113,227 +112,10 @@ impl UiCtx<String> for SdlUiCtx {
     }
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "key")]
-enum Key {
-    Zero,
-    One,
-    Two,
-    Three,
-    Four,
-    Five,
-    Six,
-    Seven,
-    Eight,
-    Nine,
-    A,
-    B,
-    C,
-    D,
-    E,
-    F,
-    G,
-    H,
-    I,
-    J,
-    K,
-    L,
-    M,
-    N,
-    O,
-    P,
-    Q,
-    R,
-    S,
-    T,
-    U,
-    V,
-    W,
-    X,
-    Y,
-    Z,
-    Up,
-    Down,
-    Left,
-    Right,
-    Enter,
-    Backspace,
-    Space,
-}
-
-impl Key {
-    fn from_sdl_keycode(keycode: Keycode) -> Option<Key> {
-        let v = match keycode {
-            Keycode::Num0 | Keycode::Kp0 => Key::Zero,
-            Keycode::Num1 | Keycode::Kp1 => Key::One,
-            Keycode::Num2 | Keycode::Kp2 => Key::Two,
-            Keycode::Num3 | Keycode::Kp3 => Key::Three,
-            Keycode::Num4 | Keycode::Kp4 => Key::Four,
-            Keycode::Num5 | Keycode::Kp5 => Key::Five,
-            Keycode::Num6 | Keycode::Kp6 => Key::Six,
-            Keycode::Num7 | Keycode::Kp7 => Key::Seven,
-            Keycode::Num8 | Keycode::Kp8 => Key::Eight,
-            Keycode::Num9 | Keycode::Kp9 => Key::Nine,
-            Keycode::A => Key::A,
-            Keycode::B => Key::B,
-            Keycode::C => Key::C,
-            Keycode::D => Key::D,
-            Keycode::E => Key::E,
-            Keycode::F => Key::F,
-            Keycode::G => Key::G,
-            Keycode::H => Key::H,
-            Keycode::I => Key::I,
-            Keycode::J => Key::J,
-            Keycode::K => Key::K,
-            Keycode::L => Key::L,
-            Keycode::M => Key::M,
-            Keycode::N => Key::N,
-            Keycode::O => Key::O,
-            Keycode::P => Key::P,
-            Keycode::Q => Key::Q,
-            Keycode::R => Key::R,
-            Keycode::S => Key::S,
-            Keycode::T => Key::T,
-            Keycode::U => Key::U,
-            Keycode::V => Key::V,
-            Keycode::W => Key::W,
-            Keycode::X => Key::X,
-            Keycode::Y => Key::Y,
-            Keycode::Z => Key::Z,
-            Keycode::Up => Key::Up,
-            Keycode::Down => Key::Down,
-            Keycode::Left => Key::Left,
-            Keycode::Right => Key::Right,
-            Keycode::Return => Key::Enter,
-            Keycode::Backspace => Key::Backspace,
-            Keycode::Space => Key::Space,
-            _ => return None,
-        };
-        Some(v)
-    }
-}
-
-impl std::fmt::Display for Key {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let val = match self {
-            Key::Zero => "0",
-            Key::One => "1",
-            Key::Two => "2",
-            Key::Three => "3",
-            Key::Four => "4",
-            Key::Five => "5",
-            Key::Six => "6",
-            Key::Seven => "7",
-            Key::Eight => "8",
-            Key::Nine => "9",
-            Key::A => "A",
-            Key::B => "B",
-            Key::C => "C",
-            Key::D => "D",
-            Key::E => "E",
-            Key::F => "F",
-            Key::G => "G",
-            Key::H => "H",
-            Key::I => "I",
-            Key::J => "J",
-            Key::K => "K",
-            Key::L => "L",
-            Key::M => "M",
-            Key::N => "N",
-            Key::O => "O",
-            Key::P => "P",
-            Key::Q => "Q",
-            Key::R => "R",
-            Key::S => "S",
-            Key::T => "T",
-            Key::U => "U",
-            Key::V => "V",
-            Key::W => "W",
-            Key::X => "X",
-            Key::Y => "Y",
-            Key::Z => "Z",
-            Key::Up => "Up",
-            Key::Down => "Down",
-            Key::Left => "Left",
-            Key::Right => "Right",
-            Key::Enter => "Enter",
-            Key::Backspace => "Backspace",
-            Key::Space => "Space",
-        };
-        write!(f, "{val}")
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct Config {
-    reimtris1_feature_parity: bool,
-    restart: Vec<Key>,
-    left: Vec<Key>,
-    right: Vec<Key>,
-    rotate_cw: Vec<Key>,
-    rotate_ccw: Vec<Key>,
-    soft_drop: Vec<Key>,
-    hard_drop: Vec<Key>,
-    swap: Vec<Key>,
-    pause: Vec<Key>,
-    toggle_mute: Vec<Key>,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            reimtris1_feature_parity: false,
-            restart: vec![Key::Enter, Key::Space],
-            left: vec![Key::Left],
-            right: vec![Key::Right],
-            rotate_cw: vec![Key::X],
-            rotate_ccw: vec![Key::Z],
-            soft_drop: vec![Key::Down],
-            hard_drop: vec![Key::Space],
-            swap: vec![Key::C],
-            pause: vec![Key::P],
-            toggle_mute: vec![Key::M],
-        }
-    }
-}
-
-fn config_from_file<P: AsRef<std::path::Path>>(path: P) -> Result<Config, String> {
-    let Some(config) = fs::read_to_string(path.as_ref()).ok() else {
-        let config = Config::default();
-        {
-            println!("could not get config! creating default...");
-            let config = toml::to_string(&config).map_err(|err| err.to_string())?;
-            fs::write(path.as_ref(), config).map_err(|err| err.to_string())?;
-            println!("created config at '{}'", path.as_ref().display());
-        }
-        return Ok(config);
-    };
-    let Some(config) = toml::from_str(&config).ok() else {
-        println!("womp womp, config contains an invalid config, resetting...");
-        let config = Config::default();
-        {
-            let config = toml::to_string(&config).map_err(|err| err.to_string())?;
-            fs::write(path.as_ref(), config).map_err(|err| err.to_string())?;
-            println!("created config at '{}'", path.as_ref().display());
-        }
-        return Ok(config);
-    };
-    Ok(config)
-}
-
-pub fn start_game() -> Result<(), String> {
+pub fn start_game(config: Config) -> Result<(), String> {
     let mut game = Game::new();
     let mut actions = ActionsHeld::new();
     let mut paused = false;
-
-    let config = {
-        let base = xdg::BaseDirectories::new().map_err(|err| err.to_string())?;
-        let path = base
-            .place_config_file("reimtris2/config.toml")
-            .map_err(|err| err.to_string())?;
-        let config = config_from_file(path)?;
-        config
-    };
 
     const FONT: &'static str = "resources/josenfin_sans_regular.ttf";
 
@@ -376,7 +158,7 @@ pub fn start_game() -> Result<(), String> {
                     repeat: false,
                     ..
                 } => {
-                    let Some(key) = Key::from_sdl_keycode(keycode) else {
+                    let Some(key) = Key::from_sdl2_keycode(keycode) else {
                         continue;
                     };
                     if config.pause.contains(&key) {
@@ -415,7 +197,7 @@ pub fn start_game() -> Result<(), String> {
                     repeat: false,
                     ..
                 } => {
-                    let Some(key) = Key::from_sdl_keycode(keycode) else {
+                    let Some(key) = Key::from_sdl2_keycode(keycode) else {
                         continue;
                     };
                     if config.left.contains(&key) {
