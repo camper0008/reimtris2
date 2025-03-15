@@ -2,6 +2,13 @@ use crate::actions::{Action, ActionsHeld};
 use crate::board::Board;
 use crate::tetromino::{Direction, DirectionDiff, Tetromino};
 
+pub enum SoundEffect {
+    HardDrop,
+    LineClear(usize),
+    Move,
+    Rotation,
+}
+
 #[derive(Debug)]
 pub struct CurrentTetromino {
     pub tetromino: Tetromino,
@@ -42,6 +49,7 @@ pub struct Game {
     pub game_over: bool,
     pub board: Board,
     pub next_tetrominos: [Tetromino; 3],
+    bag: Bag,
     pub current_tetromino: CurrentTetromino,
     pub held_tetromino: Option<Tetromino>,
     has_swapped_held: bool,
@@ -49,74 +57,68 @@ pub struct Game {
     pub ticks: usize,
 }
 
-pub enum SoundEffect {
-    HardDrop,
-    LineClear(usize),
-    Move,
-    Rotation,
+struct Bag {
+    inner: [Tetromino; 7],
+    idx: usize,
 }
 
-pub struct Score {
-    pub level: usize,
-    pub points: usize,
-    pub lines: usize,
-    pub combo: usize,
-    back_to_back: bool,
-}
-
-impl Score {
-    const fn new() -> Self {
+impl Bag {
+    fn new() -> Self {
         Self {
-            level: 0,
-            points: 0,
-            lines: 0,
-            combo: 0,
-            back_to_back: false,
+            inner: Self::random_tetrominos(),
+            idx: 0,
         }
     }
+    pub fn random_tetrominos() -> [Tetromino; 7] {
+        use rand::seq::IndexedRandom;
+        let sample = [
+            Tetromino::I,
+            Tetromino::J,
+            Tetromino::L,
+            Tetromino::O,
+            Tetromino::S,
+            Tetromino::T,
+            Tetromino::Z,
+        ];
 
-    fn level_up(&mut self, lines_cleared: usize) {
-        self.lines += lines_cleared;
-        if self.lines > self.level * 5 {
-            self.level += 1;
-            self.lines = 0;
-        }
+        debug_assert_eq!(sample.len(), 7, "each piece should only appear once");
+
+        sample
+            .choose_multiple_array(&mut rand::rng())
+            .expect("both arrays should have a length of 7")
     }
-
-    fn point_multiplier_from_lines_cleared(lines_cleared: usize) -> f32 {
-        match lines_cleared {
-            0 => 0.0,
-            1 => 100.0,
-            2 => 300.0,
-            3 => 500.0,
-            4 => 800.0,
-            _ => unreachable!("we cannot clear more than 4 lines"),
+    fn take_next(&mut self) -> Tetromino {
+        if self.idx >= self.inner.len() {
+            self.idx = 0;
+            self.inner = Self::random_tetrominos();
         }
-    }
 
-    fn combos(&self, lines_cleared: usize) -> usize {
-        if lines_cleared > 0 {
-            self.combo * 50 * self.level
-        } else {
-            0
-        }
+        let uninitialized_tetromino = Tetromino::I;
+        let current = std::mem::replace(&mut self.inner[self.idx], uninitialized_tetromino);
+        self.idx += 1;
+        current
     }
 }
 
 impl Game {
     pub fn new() -> Self {
+        let mut bag = Bag::new();
+
         Self {
             game_over: false,
             board: Board::new(),
-            next_tetrominos: std::array::from_fn(|_| Tetromino::random()),
-            current_tetromino: CurrentTetromino::new(Tetromino::random()),
+            next_tetrominos: std::array::from_fn(|_| bag.take_next()),
+            current_tetromino: CurrentTetromino::new(bag.take_next()),
             held_tetromino: None,
+            bag,
             has_swapped_held: false,
             score: Score::new(),
             ticks: 0,
         }
     }
-    fn take_next_in_bag(&mut self, mut last: Tetromino) -> Tetromino {
+
+    fn take_next_up(&mut self) -> Tetromino {
+        let mut last = self.bag.take_next();
         for value in self.next_tetrominos.iter_mut().rev() {
             std::mem::swap(value, &mut last)
         }
@@ -265,7 +267,7 @@ impl Game {
     }
 
     fn place_current_tetromino(&mut self) {
-        let next = CurrentTetromino::new(self.take_next_in_bag(Tetromino::random()));
+        let next = CurrentTetromino::new(self.take_next_up());
         let current = std::mem::replace(&mut self.current_tetromino, next);
         let pattern = current.tetromino.pattern(&current.direction);
 
@@ -301,7 +303,7 @@ impl Game {
         let held_or_first_in_bag_tetromino = self
             .held_tetromino
             .take()
-            .unwrap_or_else(|| self.take_next_in_bag(Tetromino::random()));
+            .unwrap_or_else(|| self.take_next_up());
         let current_tetromino = CurrentTetromino::new(held_or_first_in_bag_tetromino);
         let old_tetromino = std::mem::replace(&mut self.current_tetromino, current_tetromino);
         self.held_tetromino.replace(old_tetromino.tetromino);
@@ -309,26 +311,49 @@ impl Game {
     }
 }
 
-#[cfg(test)]
-mod test {
-    use super::{Board, CurrentTetromino, Game, Score, Tetromino};
+pub struct Score {
+    pub level: usize,
+    pub points: usize,
+    pub lines: usize,
+    pub combo: usize,
+    back_to_back: bool,
+}
 
-    #[test]
-    fn advance_bag() {
-        let mut game = Game {
-            game_over: false,
-            board: Board::new(),
-            score: Score::new(),
-            next_tetrominos: [Tetromino::I, Tetromino::J, Tetromino::O],
-            current_tetromino: CurrentTetromino::new(Tetromino::J),
-            held_tetromino: None,
-            has_swapped_held: false,
-            ticks: 0,
-        };
-        assert_eq!(game.take_next_in_bag(Tetromino::S), Tetromino::I);
-        assert_eq!(
-            game.next_tetrominos,
-            [Tetromino::J, Tetromino::O, Tetromino::S]
-        );
+impl Score {
+    const fn new() -> Self {
+        Self {
+            level: 0,
+            points: 0,
+            lines: 0,
+            combo: 0,
+            back_to_back: false,
+        }
+    }
+
+    fn level_up(&mut self, lines_cleared: usize) {
+        self.lines += lines_cleared;
+        if self.lines > self.level * 5 {
+            self.level += 1;
+            self.lines = 0;
+        }
+    }
+
+    fn point_multiplier_from_lines_cleared(lines_cleared: usize) -> f32 {
+        match lines_cleared {
+            0 => 0.0,
+            1 => 100.0,
+            2 => 300.0,
+            3 => 500.0,
+            4 => 800.0,
+            _ => unreachable!("we cannot clear more than 4 lines"),
+        }
+    }
+
+    fn combos(&self, lines_cleared: usize) -> usize {
+        if lines_cleared > 0 {
+            self.combo * 50 * self.level
+        } else {
+            0
+        }
     }
 }

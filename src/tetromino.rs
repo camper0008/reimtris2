@@ -38,20 +38,6 @@ pub enum DirectionDiff {
 }
 
 impl Tetromino {
-    pub fn random() -> Self {
-        let v: u8 = rand::random();
-        match v % 7 {
-            0 => Self::I,
-            1 => Self::J,
-            2 => Self::L,
-            3 => Self::O,
-            4 => Self::S,
-            5 => Self::T,
-            6 => Self::Z,
-            _ => unreachable!("v%7 is always in range 0..=6"),
-        }
-    }
-
     pub fn pattern(&self, direction: &Direction) -> Vec<(usize, usize)> {
         self.raw_pattern(direction)
             .into_iter()
