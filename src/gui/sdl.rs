@@ -12,36 +12,36 @@ use std::time::Duration;
 use super::audio::{self};
 use super::ui::{GameUiCtx, Rgb, UiCtx};
 
-fn font_texture<'font, 'a, P: AsRef<std::path::Path>, Text: AsRef<str>, C>(
-    font: P,
-    text: Text,
-    ttf_context: &'a Sdl2TtfContext,
-    texture_creator: &'font TextureCreator<C>,
-) -> Result<Texture<'font>, String> {
-    let font = ttf_context.load_font(font, 24)?;
-    let game_over_text = font
-        .render(text.as_ref())
-        .solid(Color::RGB(255, 255, 255))
-        .map_err(|err| err.to_string())?;
-    let texture = texture_creator
-        .create_texture_from_surface(game_over_text)
-        .map_err(|err| err.to_string())?;
-
-    Ok(texture)
-}
-
-struct SdlUiCtx {
-    canvas: WindowCanvas,
+struct SdlUiCtx<'a> {
+    canvas: &'a mut WindowCanvas,
     ttf: Sdl2TtfContext,
 }
 
-impl SdlUiCtx {
+impl SdlUiCtx<'_> {
     fn present(&mut self) {
         self.canvas.present();
     }
+
+    fn font_texture<'font, 'a, P: AsRef<std::path::Path>, Text: AsRef<str>, C>(
+        &self,
+        font: P,
+        text: Text,
+        texture_creator: &'font TextureCreator<C>,
+    ) -> Result<Texture<'font>, String> {
+        let font = self.ttf.load_font(font, 24)?;
+        let game_over_text = font
+            .render(text.as_ref())
+            .solid(Color::RGB(255, 255, 255))
+            .map_err(|err| err.to_string())?;
+        let texture = texture_creator
+            .create_texture_from_surface(game_over_text)
+            .map_err(|err| err.to_string())?;
+
+        Ok(texture)
+    }
 }
 
-impl UiCtx<String> for SdlUiCtx {
+impl UiCtx<String> for SdlUiCtx<'_> {
     fn window_size(&self) -> Result<(i32, i32), String> {
         let (width, height) = self.canvas.window().size();
         Ok((width as i32, height as i32))
@@ -81,7 +81,7 @@ impl UiCtx<String> for SdlUiCtx {
         text: Text,
     ) -> Result<(i32, i32), String> {
         let texture_creator = self.canvas.texture_creator();
-        let texture = font_texture(font, text, &self.ttf, &texture_creator)?;
+        let texture = self.font_texture(font, text, &texture_creator)?;
         let query = texture.query();
         Ok((query.width as i32, query.height as i32))
     }
@@ -96,7 +96,7 @@ impl UiCtx<String> for SdlUiCtx {
         height: i32,
     ) -> Result<(), String> {
         let texture_creator = self.canvas.texture_creator();
-        let texture = font_texture(font, text, &self.ttf, &texture_creator)?;
+        let texture = self.font_texture(font, text, &texture_creator)?;
         self.canvas.copy(
             &texture,
             None,
@@ -133,9 +133,9 @@ pub fn start_game(config: Config) -> Result<(), String> {
         .build()
         .unwrap();
 
-    let canvas = window.into_canvas().build().unwrap();
+    let mut canvas = window.into_canvas().build().unwrap();
     let mut ctx = SdlUiCtx {
-        canvas,
+        canvas: &mut canvas,
         ttf: ttf_context,
     };
     let mut event_pump = sdl_context.event_pump()?;
